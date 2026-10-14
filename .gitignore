@@ -1,3 +1,4 @@
 
 # Identifiants de production — ne jamais versionner
 src/config/config.local.php
+/data/
