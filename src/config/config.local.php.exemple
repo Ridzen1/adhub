@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * MODÈLE DE CONFIGURATION — À COPIER, PAS À MODIFIER ICI.
+ *
+ * Sur l'hébergement :
+ *   1. copier ce fichier en config.local.php (dans le même dossier)
+ *   2. y renseigner les identifiants réels
+ *   3. NE JAMAIS versionner ni téléverser config.local.php depuis le poste de dev
+ *
+ * En local (Docker), ce fichier n'existe pas : les identifiants viennent alors
+ * des variables d'environnement de docker-compose.yml.
+ */
+
+return [
+    'db' => [
+        // Sur o2switch, l'hôte est 'localhost'
+        'host' => 'localhost',
+
+        // Nom complet donné par cPanel, préfixé par le compte : ex. abcd1234_adhub
+        'name' => 'PREFIXE_adhub',
+
+        // Utilisateur MySQL dédié, également préfixé : ex. abcd1234_adhub
+        'user' => 'PREFIXE_adhub',
+
+        // Mot de passe généré par cPanel — long et aléatoire
+        'pass' => 'A_REMPLACER',
+    ],
+];

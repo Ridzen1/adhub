@@ -1,0 +1,3 @@
+# Ce dossier ne doit jamais être accessible depuis le navigateur.
+# Ses fichiers sont inclus par PHP, pas appelés directement.
+Require all denied

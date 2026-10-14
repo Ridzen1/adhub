@@ -1,0 +1,31 @@
+services:
+  web:
+    image: php:8.3-apache
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_NAME: dashboard
+      DB_USER: root
+      DB_PASS: root
+    command: sh -c "docker-php-ext-install pdo_mysql && apache2-foreground"
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_DATABASE: dashboard
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  adminer:
+    image: adminer
+    ports:
+      - "8081:8080"
