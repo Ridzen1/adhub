@@ -206,7 +206,9 @@ require __DIR__ . '/../inc/layout_header.php';
             <label class="form-label">Solde arrêté au</label>
             <input type="date" name="solde_maj_le" class="form-control"
                    value="<?= htmlspecialchars($project['solde_maj_le'] ?? '') ?>">
-            <div class="form-text">Au-delà de 30 jours, la vue globale signale un chiffre ancien.</div>
+            <div class="form-text">Au-delà de 30 jours, la vue globale signale un chiffre ancien.
+              Si la banque est connectée à Pennylane, ce solde sert de point de départ : chaque import
+              lui ajoute les mouvements postérieurs à cette date.</div>
           </div>
 
           <div class="col-4">

@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../cron/caisses/xlsx_reader.php';
+require_once __DIR__ . '/financials.php';
 
 /** En-têtes attendus dans chaque feuille (colonne repérée par son titre, pas par sa position) */
 const PENNYLANE_FEUILLES = [
@@ -194,6 +195,8 @@ function pennylane_importer_xlsx(string $binaire, string $nomFichier, ?int $user
 
     $res['societes'] = array_keys($res['societes']);
     pennylane_relier_automatiquement();
+    pennylane_alimenter_suivi_mensuel();
+    pennylane_maj_tresorerie();
     return $res;
 }
 
@@ -468,4 +471,158 @@ function pennylane_par_projet(string $du, string $au): array
         $out[(int) $r['project_id']] = ['reste' => (float) $r['reste'], 'echu' => (float) $r['echu']];
     }
     return $out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Suivi mensuel du tableau de bord                                    */
+/* ------------------------------------------------------------------ */
+
+/** Marque des mois écrits par l'outil : une saisie à la main n'a pas cette note et n'est jamais écrasée */
+const PL_SUIVI_AUTO = 'auto:pennylane';
+
+/**
+ * Encaissements qui ne sont pas des revenus : prêts, apports, fonds passés par le
+ * notaire, virements internes. Les virements venant d'une autre société du groupe
+ * sont aussi écartés (repérés par son nom dans le libellé).
+ */
+const PL_PAS_UN_REVENU = '/COMPTE COURAN|PRET|PRÊT|APPORT|NOTAIRE|MAITRE|SCP |VIRT TRESO|TRESO COMPTE|RBT |REMBOURSEMENT|EMPRUNT/u';
+
+function pl_est_un_revenu(string $libelle, array $nomsGroupe): bool
+{
+    $l = mb_strtoupper($libelle);
+    if (preg_match(PL_PAS_UN_REVENU, $l)) {
+        return false;
+    }
+    foreach ($nomsGroupe as $nom) {
+        if ($nom !== '' && str_contains($l, $nom)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Remplit le suivi mensuel (financial_entries) de chaque société reliée à Pennylane :
+ *  - charges  = factures fournisseurs HT du mois (avoirs déduits) ;
+ *  - revenus  = CA HT des caisses pour un restaurant, encaissements bancaires sinon
+ *               (Pennylane ne contient presque pas de factures clients).
+ * Appelé après chaque import Pennylane, changement de correspondance et synchro caisse.
+ * Renvoie le nombre de mois écrits.
+ */
+function pennylane_alimenter_suivi_mensuel(): int
+{
+    $pdo = get_db();
+    $projets = $pdo->query(
+        "SELECT DISTINCT p.id, pt.code
+         FROM pennylane_societes ps
+         JOIN projects p ON p.id = ps.project_id
+         JOIN project_types pt ON pt.id = p.project_type_id"
+    )->fetchAll();
+
+    // Noms des sociétés du groupe, sans forme juridique, pour repérer les virements internes
+    $nomsGroupe = [];
+    foreach ($pdo->query("SELECT name FROM projects") as $p) {
+        foreach (preg_split('#\s*/\s*#', mb_strtoupper($p['name'])) as $n) {
+            $n = trim(preg_replace('/^(SCI|SAS|SARL|SASU|EURL)\s+/u', '', $n));
+            if (mb_strlen($n) >= 4) $nomsGroupe[] = $n;
+        }
+    }
+
+    $existant = $pdo->prepare(
+        "SELECT notes FROM financial_entries WHERE project_id = :p AND period_date = :m"
+    );
+    $ecrits = 0;
+
+    foreach ($projets as $projet) {
+        $pid = (int) $projet['id'];
+        [$in, $params] = pl_in(pennylane_noms_projet($pid));
+        $mois = [];
+
+        foreach (pl_requete(
+            "SELECT DATE_FORMAT(date_facture, '%Y-%m-01') AS m, SUM(ht) AS v
+             FROM pennylane_factures
+             WHERE sens = 'fournisseur' AND societe IN ($in) AND date_facture IS NOT NULL
+             GROUP BY m", $params
+        ) as $r) {
+            $mois[$r['m']]['charges'] = (float) $r['v'];
+        }
+
+        if ($projet['code'] === 'restauration_exploitation') {
+            $stmt = $pdo->prepare(
+                "SELECT DATE_FORMAT(entry_date, '%Y-%m-01') AS m,
+                        SUM(COALESCE(ca_ht, ca_ttc / 1.1)) AS v
+                 FROM daily_entries WHERE project_id = :p GROUP BY m"
+            );
+            $stmt->execute(['p' => $pid]);
+            foreach ($stmt->fetchAll() as $r) {
+                $mois[$r['m']]['revenus'] = (float) $r['v'];
+            }
+        } else {
+            $transactions = pl_requete(
+                "SELECT DATE_FORMAT(date_operation, '%Y-%m-01') AS m, montant, libelle
+                 FROM pennylane_transactions WHERE societe IN ($in)", $params
+            );
+            // Banque non connectée à Pennylane : revenus inconnus, on n'écrit rien
+            if (!$transactions) {
+                continue;
+            }
+            foreach ($transactions as $t) {
+                $mois[$t['m']]['revenus'] ??= 0.0;
+                if ((float) $t['montant'] > 0 && pl_est_un_revenu((string) $t['libelle'], $nomsGroupe)) {
+                    $mois[$t['m']]['revenus'] += (float) $t['montant'];
+                }
+            }
+        }
+
+        foreach ($mois as $m => $v) {
+            // Restaurant sans caisse ce mois-là : on n'affiche pas une perte qui n'en est pas une
+            if ($projet['code'] === 'restauration_exploitation' && !isset($v['revenus'])) {
+                continue;
+            }
+            $existant->execute(['p' => $pid, 'm' => $m]);
+            $ligne = $existant->fetch();
+            if ($ligne && $ligne['notes'] !== PL_SUIVI_AUTO) {
+                continue;
+            }
+            upsert_financial_entry($pid, $m, round($v['revenus'] ?? 0, 2), round($v['charges'] ?? 0, 2), PL_SUIVI_AUTO);
+            $ecrits++;
+        }
+    }
+    return $ecrits;
+}
+
+/**
+ * Trésorerie de chaque société reliée : solde saisi dans la fiche (point de départ)
+ * + mouvements bancaires Pennylane postérieurs à sa date. Sans solde de départ, ou
+ * sans banque connectée à Pennylane, le solde de la fiche reste tel quel.
+ * Renvoie le nombre de sociétés mises à jour.
+ */
+function pennylane_maj_tresorerie(): int
+{
+    $pdo = get_db();
+    $projets = $pdo->query(
+        "SELECT DISTINCT p.id, p.solde_reference, p.solde_reference_le
+         FROM projects p JOIN pennylane_societes ps ON ps.project_id = p.id
+         WHERE p.solde_reference IS NOT NULL AND p.solde_reference_le IS NOT NULL"
+    )->fetchAll();
+    $maj = $pdo->prepare("UPDATE projects SET solde_bancaire = :s, solde_maj_le = :d WHERE id = :p");
+    $n = 0;
+    foreach ($projets as $projet) {
+        [$in, $params] = pl_in(pennylane_noms_projet((int) $projet['id']));
+        $params['depuis'] = $projet['solde_reference_le'];
+        $r = pl_requete(
+            "SELECT COUNT(*) AS nb, COALESCE(SUM(montant), 0) AS mouvements, MAX(date_operation) AS derniere
+             FROM pennylane_transactions WHERE societe IN ($in) AND date_operation > :depuis", $params
+        )[0];
+        if ((int) $r['nb'] === 0) {
+            continue;
+        }
+        $maj->execute([
+            's' => round((float) $projet['solde_reference'] + (float) $r['mouvements'], 2),
+            'd' => $r['derniere'],
+            'p' => (int) $projet['id'],
+        ]);
+        $n++;
+    }
+    return $n;
 }

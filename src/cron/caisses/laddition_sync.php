@@ -282,5 +282,12 @@ foreach ($config['laddition_accounts'] as $acc) {
         @unlink($jar); // ne pas laisser traîner les cookies de session
     }
 }
+// Le suivi mensuel du tableau de bord reprend le CA des caisses
+try {
+    require_once __DIR__ . '/../../inc/pennylane.php';
+    logMsg('Suivi mensuel : ' . pennylane_alimenter_suivi_mensuel() . ' mois mis à jour');
+} catch (Throwable $e) {
+    logMsg('Suivi mensuel non mis à jour : ' . $e->getMessage());
+}
 exit($exitCode);
 }
