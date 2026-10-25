@@ -276,8 +276,23 @@ arrivent, `cron/sync_api.php` prend le relais.
 à pointer depuis un `caisses.local.php` de test (comptes `bellevue@test.fr` / `test123` et
 `come@test.fr` / `popina123`).
 
+## Comptabilité : import Pennylane
+
+Pas de connexion automatique à Pennylane : la direction exporte les données à la main et les dépose
+dans **Administration → Import Pennylane** (migration `013_pennylane.sql`).
+
+- Le fichier Excel doit contenir les feuilles « Factures fournisseurs », « Factures clients » et
+  « Transactions bancaires ». Les colonnes sont repérées par leur titre.
+- Chaque ligne est reconnue par son identifiant Pennylane : réimporter un export plus récent met à
+  jour sans doublon. Le script SQL généré avec l'export peut aussi être passé dans phpMyAdmin.
+- Chaque société Pennylane est reliée à une société ADHUB. Les noms évidents le sont d'office ;
+  les noms ambigus (ex. « JAURES » : SCI ou SAS) restent à choisir sur la page d'import.
+- Une société reliée gagne un onglet **Comptabilité** : fournisseurs à payer (dont échus), achats HT,
+  flux bancaires, opérations à justifier, principaux fournisseurs, factures ouvertes.
+  La vue d'ensemble affiche le total à payer et les sociétés avec des factures échues.
+
 ## Prochaine étape
 
 - Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
-- Connecteur API Popina officiel (une clé par établissement), puis Pennylane.
+- Connecteur API Popina officiel (une clé par établissement).
 - Déploiement sur l'hébergement.

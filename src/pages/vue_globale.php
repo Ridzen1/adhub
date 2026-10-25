@@ -3,6 +3,7 @@ require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/projects.php';
 require_once __DIR__ . '/../inc/charges.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
+require_once __DIR__ . '/../inc/pennylane.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_direction(); // vue consolidée : direction uniquement
 
@@ -91,6 +92,20 @@ $dernierMois = (int) get_db()->query("SELECT COALESCE(MAX(MONTH(period_date)), 0
 $ytdN1    = $dernierMois ? resultat_annee($tousIds, $annee - 1, $dernierMois) : null;
 $varNet   = $ytdN1 ? ecart_pct($ytdNet, $ytdN1['revenus'] - $ytdN1['charges']) : null;
 
+// Factures fournisseurs restant à payer d'après le dernier export Pennylane
+try {
+    $plProjets = pennylane_par_projet($annee . '-01-01', $annee . '-12-31');
+    $plImport  = pennylane_dernier_import();
+} catch (PDOException $e) {
+    $plProjets = []; // migration 013 pas encore passée
+    $plImport  = null;
+}
+$plReste = array_sum(array_column($plProjets, 'reste'));
+$plEchu  = array_sum(array_column($plProjets, 'echu'));
+$nomsProjets = array_column($projects, 'name', 'id');
+uasort($plProjets, fn($a, $b) => $b['echu'] <=> $a['echu']);
+$plRetards = array_filter($plProjets, fn($r, $pid) => $r['echu'] > 0.009 && isset($nomsProjets[$pid]), ARRAY_FILTER_USE_BOTH);
+
 $urgentes = array_values(array_filter($alertes, fn($a) => in_array($a['alerte'], ['depasse', 'urgent'], true)));
 
 $sections = [
@@ -150,6 +165,13 @@ require __DIR__ . '/../inc/layout_header.php';
                 . ($varNet !== null ? ' ' . delta($varNet, false, 'vs N-1') : '')
                 . ($dernierMois ? '<span>à fin ' . format_mois_fr($annee, $dernierMois) . '</span>' : ''),
       ]) ?>
+  <?php if ($plImport): ?>
+    <?= kpi('Fournisseurs à payer', eur($plReste), [
+          'icon' => 'receipt', 'href' => '#retards-fournisseurs',
+          'foot' => ($plEchu > 0.009 ? '<span class="text-danger fw-semibold">' . eur($plEchu) . ' échus</span> ' : '')
+                  . '<span>Pennylane au ' . date('d/m', strtotime($plImport['imported_at'])) . '</span>',
+        ]) ?>
+  <?php endif; ?>
 </div>
 
 <?php if ($urgentes): ?>
@@ -211,6 +233,30 @@ require __DIR__ . '/../inc/layout_header.php';
         </div>
       </div>
     </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($plRetards): $maxEchu = max(array_column($plRetards, 'echu')); ?>
+<div class="card mb-4" id="retards-fournisseurs">
+  <div class="card-header">
+    Factures fournisseurs échues
+    <span class="card-hint">Reste à payer d'après Pennylane</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0 align-middle">
+      <thead><tr><th>Société</th><th class="text-end">Échu</th><th class="d-none d-md-table-cell" style="width:30%"></th><th class="text-end">Total à payer</th></tr></thead>
+      <tbody>
+        <?php foreach (array_slice($plRetards, 0, 10, true) as $pid => $r): ?>
+          <tr>
+            <td><a class="row-link" href="/pages/comptabilite.php?id=<?= (int) $pid ?>"><?= h($nomsProjets[$pid]) ?></a></td>
+            <td class="text-end fw-semibold text-danger"><?= eur($r['echu']) ?></td>
+            <td class="d-none d-md-table-cell"><div class="meter bad"><span style="width:<?= max(2, round($r['echu'] / $maxEchu * 100)) ?>%"></span></div></td>
+            <td class="text-end"><?= eur($r['reste']) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
   </div>
 </div>
 <?php endif; ?>

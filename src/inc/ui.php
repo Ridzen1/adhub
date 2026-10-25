@@ -192,6 +192,18 @@ function lien_societe(int $pid): string
  * $actif : clé de l'onglet courant (dashboard, saisie, evolution, analyse, fiche, charges, documents).
  * $actions : HTML des boutons à droite (optionnel).
  */
+/** Vrai si un export Pennylane a été relié à cette société (onglet Comptabilité) */
+function societe_a_compta_pennylane(int $projectId): bool
+{
+    try {
+        $st = get_db()->prepare("SELECT 1 FROM pennylane_societes WHERE project_id = :id LIMIT 1");
+        $st->execute(['id' => $projectId]);
+        return (bool) $st->fetchColumn();
+    } catch (PDOException $e) {
+        return false; // migration 013 pas encore passée
+    }
+}
+
 function company_header(array $project, string $actif, string $actions = '', string $meta = ''): string
 {
     $id = (int) $project['id'];
@@ -209,6 +221,9 @@ function company_header(array $project, string $actif, string $actions = '', str
         $onglets['saisie']    = ['Saisie quotidienne', '/pages/saisie_quotidienne.php', 'dashboard'];
     }
     $onglets['charges']   = ['Charges fixes', '/pages/charges.php', 'dashboard'];
+    if (societe_a_compta_pennylane($id)) {
+        $onglets['compta'] = ['Comptabilité', '/pages/comptabilite.php', 'dashboard'];
+    }
     $onglets['documents'] = ['Documents', '/pages/project_documents.php', 'documents'];
     $onglets['fiche']     = ['Fiche société', '/pages/project_detail.php', 'fiche'];
 

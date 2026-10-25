@@ -23,8 +23,8 @@ foreach ($navProjects as $np) {
 $navPage = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
 $currentProjectId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $pagesSociete = ['project_dashboard', 'project_detail', 'project_documents', 'charges', 'saisie_quotidienne',
-                 'evolution', 'analyse_caisse', 'import_caisse'];
-$pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses'];
+                 'evolution', 'analyse_caisse', 'import_caisse', 'comptabilite'];
+$pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses', 'admin_pennylane'];
 $enSociete    = in_array($navPage, $pagesSociete, true) && $currentProjectId > 0;
 
 $nomSocieteCourante = null;
@@ -117,6 +117,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
             <a class="dropdown-item <?= $navPage === 'projects' ? 'active' : '' ?>" href="/pages/projects.php">Gérer les sociétés</a>
             <a class="dropdown-item <?= $navPage === 'admin_users' ? 'active' : '' ?>" href="/pages/admin_users.php">Utilisateurs et accès</a>
             <a class="dropdown-item <?= $navPage === 'admin_caisses' ? 'active' : '' ?>" href="/pages/admin_caisses.php">Caisses</a>
+            <a class="dropdown-item <?= $navPage === 'admin_pennylane' ? 'active' : '' ?>" href="/pages/admin_pennylane.php">Import Pennylane</a>
             <div class="dropdown-divider"></div>
             <a class="dropdown-item <?= $navPage === 'admin_logs' ? 'active' : '' ?>" href="/pages/admin_logs.php">Journal des accès</a>
           </div>
