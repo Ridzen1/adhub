@@ -25,3 +25,13 @@ WHERE solde_bancaire = 54200.00 AND affaires_en_cours = 3;
 UPDATE projects
 SET solde_bancaire = NULL, solde_maj_le = NULL
 WHERE solde_bancaire IN (24600.00, 35800.00);
+
+-- 3. Fiche fictive de SCI Paul Dubois (migration 003) : adresse, surface,
+--    valeur, emprunt, description et associé « non identifié ».
+UPDATE projects
+SET adresse = NULL, surface_m2 = NULL, valeur_bien = NULL, montant_emprunt = NULL, description = NULL
+WHERE name = 'SCI Paul Dubois' AND adresse = '1 Rue Paul Dubois, Nogent-sur-Seine';
+
+DELETE pa FROM project_associates pa
+JOIN projects p ON p.id = pa.project_id
+WHERE p.name = 'SCI Paul Dubois' AND pa.name = 'Associé non identifié';

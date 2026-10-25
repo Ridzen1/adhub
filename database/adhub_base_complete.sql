@@ -423,8 +423,6 @@ CREATE TABLE `project_associates` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 /*!40000 ALTER TABLE `project_associates` DISABLE KEYS */;
-INSERT INTO `project_associates` VALUES
-(1,2,'Associé non identifié','associé',49.00,NULL,'2026-10-25 13:58:46');
 /*!40000 ALTER TABLE `project_associates` ENABLE KEYS */;
 DROP TABLE IF EXISTS `project_links`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -518,7 +516,7 @@ CREATE TABLE `projects` (
 /*!40000 ALTER TABLE `projects` DISABLE KEYS */;
 INSERT INTO `projects` VALUES
 (1,'AD Holding',1,'active','888 849 346 00026',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-10-25 13:58:46'),
-(2,'SCI Paul Dubois',2,'active','522 055 458 00023','1 Rue Paul Dubois, Nogent-sur-Seine',140.00,350000.00,101156.00,NULL,NULL,NULL,NULL,NULL,NULL,'Immeuble locatif, 5 lots.','2026-10-25 13:58:46'),
+(2,'SCI Paul Dubois',2,'active','522 055 458 00023',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-10-25 13:58:46'),
 (3,'AGD INVEST',2,'active',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-10-25 13:58:47'),
 (4,'ALD IMMO',6,'active',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-10-25 13:58:47'),
 (5,'ARNAUD DUVIVIER',1,'active',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-10-25 13:58:47'),
