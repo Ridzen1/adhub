@@ -35,11 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'archi
 $types    = get_all_project_types();
 $projects = get_all_projects();
 
-$pageTitle = 'Projets';
+$pageTitle = 'Sociétés';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<h1 class="mb-4">Projets</h1>
+<?= page_header('Sociétés', 'Créer, modifier ou archiver une société.', '', 'Administration') ?>
 
 <?php if (isset($_GET['created'])): ?>
   <div class="alert alert-success">Projet créé.</div>

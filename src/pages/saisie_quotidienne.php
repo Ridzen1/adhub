@@ -82,14 +82,8 @@ $pageTitle = $project['name'] . ' — Saisie quotidienne';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-  <div>
-    <a href="/pages/import_caisse.php?id=<?= $id ?>" class="btn btn-sm btn-dark">Importer un rapport</a>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-    <a href="/pages/project_documents.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Documents</a>
-  </div>
-</div>
+<?= company_header($project, 'saisie',
+      can_edit_project($id) ? '<a href="/pages/import_caisse.php?id=' . $id . '" class="btn btn-sm btn-dark">Importer un rapport</a>' : '') ?>
 
 <?php if (isset($_GET['saved'])): ?><div class="alert alert-success">Journée enregistrée.</div><?php endif; ?>
 <?php if (isset($_GET['deleted'])): ?><div class="alert alert-secondary">Journée supprimée.</div><?php endif; ?>
@@ -129,35 +123,15 @@ require __DIR__ . '/../inc/layout_header.php';
   </div>
 <?php endif; ?>
 
-<div class="row mb-4">
-  <div class="col-md-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">CA du mois</div>
-      <div class="fs-4 fw-bold"><?= number_format((float) $summary['ca_total'], 0, ',', ' ') ?> €</div>
-    </div></div>
-  </div>
-  <div class="col-md-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Couverts</div>
-      <div class="fs-4 fw-bold"><?= number_format((int) $summary['couverts_total'], 0, ',', ' ') ?></div>
-    </div></div>
-  </div>
-  <div class="col-md-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Ticket moyen</div>
-      <?php $tm = ticket_moyen((float) $summary['ca_total'], (int) $summary['couverts_total']); ?>
-      <div class="fs-4 fw-bold"><?= $tm !== null ? number_format($tm, 2, ',', ' ') . ' €' : '—' ?></div>
-    </div></div>
-  </div>
-  <div class="col-md-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Jours saisis</div>
-      <div class="fs-4 fw-bold"><?= (int) $summary['jours_saisis'] ?></div>
-      <?php if ($missing): ?>
-        <div class="text-danger small"><?= count($missing) ?> jour(s) manquant(s)</div>
-      <?php endif; ?>
-    </div></div>
-  </div>
+<?php $tm = ticket_moyen((float) $summary['ca_total'], (int) $summary['couverts_total']); ?>
+<div class="kpi-grid">
+  <?= kpi('CA du mois', eur((float) $summary['ca_total']), ['icon' => 'receipt']) ?>
+  <?= kpi('Couverts', number_format((int) $summary['couverts_total'], 0, ',', "\u{202F}"), ['icon' => 'users']) ?>
+  <?= kpi('Ticket moyen', $tm !== null ? eur($tm, 2) : '—', ['icon' => 'wallet']) ?>
+  <?= kpi('Jours saisis', (string) (int) $summary['jours_saisis'], [
+        'icon' => 'calendar',
+        'foot' => $missing ? '<span class="text-danger fw-semibold">' . count($missing) . ' jour(s) manquant(s)</span>' : '',
+      ]) ?>
 </div>
 
 <?php if ($missing): ?>

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../inc/access.php';
+require_once __DIR__ . '/../inc/double_auth.php';
 require_login();
 
 $user     = current_user();
@@ -35,7 +36,7 @@ $pageTitle = 'Mon compte';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<h1 class="mb-4">Mon compte</h1>
+<?= page_header('Mon compte', h(current_user()['name'] ?? '')) ?>
 
 <?php if ($success): ?>
   <div class="alert alert-success">Mot de passe mis à jour.</div>
@@ -59,6 +60,27 @@ require __DIR__ . '/../inc/layout_header.php';
   </div>
 
   <div class="col-md-7">
+    <div class="card mb-4">
+      <div class="card-header">
+        Double authentification
+        <?php if ($full['totp_enabled']): ?>
+          <span class="badge bg-success">Activée</span>
+        <?php else: ?>
+          <span class="badge bg-warning">Non activée</span>
+        <?php endif; ?>
+      </div>
+      <div class="card-body d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div class="text-muted">
+          <?= $full['totp_enabled']
+              ? 'Un code de votre application est demandé à chaque connexion. ' . codes_secours_restants($user['id']) . ' code(s) de secours restant(s).'
+              : 'Protégez votre compte avec un code à 6 chiffres sur votre téléphone.' ?>
+        </div>
+        <a href="/pages/double_authentification.php" class="btn btn-sm <?= $full['totp_enabled'] ? 'btn-outline-dark' : 'btn-dark' ?>">
+          <?= $full['totp_enabled'] ? 'Gérer' : 'Activer' ?>
+        </a>
+      </div>
+    </div>
+
     <div class="card mb-4">
       <div class="card-header">Changer mon mot de passe</div>
       <div class="card-body">

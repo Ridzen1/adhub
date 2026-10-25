@@ -49,19 +49,12 @@ $pageTitle = $project['name'] . ' — Évolution';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-  <div>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-    <a href="/pages/saisie_quotidienne.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Saisie</a>
-  </div>
-</div>
+<?= company_header($project, 'evolution') ?>
 
-<ul class="nav nav-pills mb-4">
+<ul class="nav nav-pills mb-3">
   <?php foreach (['jour' => 'Hier', 'semaine' => 'Semaine', 'mois' => 'Mois'] as $k => $lab): ?>
     <li class="nav-item">
       <a class="nav-link <?= $vue === $k ? 'active' : '' ?>"
-         style="<?= $vue === $k ? 'background:#0E1C2B' : '' ?>"
          href="?id=<?= $id ?>&vue=<?= $k ?>"><?= $lab ?></a>
     </li>
   <?php endforeach; ?>
@@ -83,53 +76,22 @@ require __DIR__ . '/../inc/layout_header.php';
   </div>
 <?php endif; ?>
 
-<div class="row mb-4">
-  <div class="col-md-4">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Chiffre d'affaires</div>
-      <div class="fs-3 fw-bold"><?= fmt_euro($comp['actuel']['ca']) ?></div>
-      <?php if ($comp['n1_disponible']): ?>
-        <div class="small">
-          <?= badge_variation($comp['var_ca']) ?>
-          <span class="text-muted">vs <?= fmt_euro($comp['n1']['ca']) ?> l'an dernier</span>
-        </div>
-      <?php endif; ?>
-    </div></div>
-  </div>
-
-  <div class="col-md-4">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Couverts</div>
-      <div class="fs-3 fw-bold"><?= number_format($comp['actuel']['couverts'], 0, ',', ' ') ?></div>
-      <?php if ($comp['n1_disponible']): ?>
-        <div class="small">
-          <?= badge_variation($comp['var_couverts']) ?>
-          <span class="text-muted">vs <?= number_format($comp['n1']['couverts'], 0, ',', ' ') ?></span>
-        </div>
-      <?php endif; ?>
-    </div></div>
-  </div>
-
-  <div class="col-md-4">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Ticket moyen</div>
-      <div class="fs-3 fw-bold">
-        <?= $comp['actuel']['ticket_moyen'] !== null
-              ? number_format($comp['actuel']['ticket_moyen'], 2, ',', ' ') . ' €'
-              : '—' ?>
-      </div>
-      <?php if ($comp['n1_disponible']): ?>
-        <div class="small">
-          <?= badge_variation($comp['var_ticket']) ?>
-          <span class="text-muted">
-            vs <?= $comp['n1']['ticket_moyen'] !== null
-                    ? number_format($comp['n1']['ticket_moyen'], 2, ',', ' ') . ' €'
-                    : '—' ?>
-          </span>
-        </div>
-      <?php endif; ?>
-    </div></div>
-  </div>
+<div class="kpi-grid">
+  <?= kpi("Chiffre d'affaires", fmt_euro($comp['actuel']['ca']), [
+        'hero' => true, 'icon' => 'receipt',
+        'foot' => $comp['n1_disponible'] ? delta($comp['var_ca']) . '<span>vs ' . fmt_euro($comp['n1']['ca']) . ' N-1</span>' : '',
+      ]) ?>
+  <?= kpi('Couverts', number_format($comp['actuel']['couverts'], 0, ',', "\u{202F}"), [
+        'icon' => 'users',
+        'foot' => $comp['n1_disponible'] ? delta($comp['var_couverts']) . '<span>vs ' . number_format($comp['n1']['couverts'], 0, ',', "\u{202F}") . '</span>' : '',
+      ]) ?>
+  <?= kpi('Panier moyen', $comp['actuel']['ticket_moyen'] !== null ? eur($comp['actuel']['ticket_moyen'], 2) : '—', [
+        'icon' => 'wallet',
+        'foot' => $comp['n1_disponible'] ? delta($comp['var_ticket']) . '<span>vs ' . ($comp['n1']['ticket_moyen'] !== null ? eur($comp['n1']['ticket_moyen'], 2) : '—') . '</span>' : '',
+      ]) ?>
+  <?= kpi('Jours saisis', (string) $comp['actuel']['jours_saisis'], [
+        'icon' => 'calendar', 'foot' => $comp['n1_disponible'] ? '<span>' . $comp['n1']['jours_saisis'] . ' sur la période N-1</span>' : '',
+      ]) ?>
 </div>
 
 <?php if ($comp['actuel']['jours_saisis'] === 0): ?>
@@ -139,10 +101,11 @@ require __DIR__ . '/../inc/layout_header.php';
   </div>
 <?php elseif (count($serie) > 1): ?>
   <div class="card mb-4">
-    <div class="card-body">
-      <h6 class="mb-3">Chiffre d'affaires jour par jour</h6>
-      <canvas id="chartPeriode" height="80"></canvas>
+    <div class="card-header">
+      Chiffre d'affaires jour par jour
+      <span class="legend-inline"><span><i style="background:#1F5FAD"></i>Période</span><span><i style="background:#CBD2DB"></i>N-1</span></span>
     </div>
+    <div class="card-body"><div class="chart-box"><canvas id="chartPeriode"></canvas></div></div>
   </div>
 <?php endif; ?>
 
@@ -185,7 +148,6 @@ require __DIR__ . '/../inc/layout_header.php';
 </div>
 
 <?php if ($comp['actuel']['jours_saisis'] > 0 && count($serie) > 1): ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 new Chart(document.getElementById('chartPeriode'), {
   type: 'bar',
@@ -195,21 +157,21 @@ new Chart(document.getElementById('chartPeriode'), {
       {
         label: 'CA',
         data: <?= json_encode(array_column($serie, 'ca')) ?>,
-        backgroundColor: '#2A78D6',
-        borderRadius: 4
+        backgroundColor: '#1F5FAD',
+        maxBarThickness: 28
       },
       {
         label: 'CA N-1',
         data: <?= json_encode(array_column($serie, 'ca_n1')) ?>,
-        backgroundColor: '#C9D6E5',
-        borderRadius: 4
+        backgroundColor: '#CBD2DB',
+        maxBarThickness: 28
       }
     ]
   },
   options: {
-    responsive: true,
-    plugins: { legend: { position: 'bottom' } },
-    scales: { y: { beginAtZero: true } }
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (x) { return ' ' + x.dataset.label + ' : ' + ADHUB.eur(x.raw); } } } },
+    scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
+              y: { beginAtZero: true, ticks: { callback: function (v) { return ADHUB.eurShort(v); } } } }
   }
 });
 </script>

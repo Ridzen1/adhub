@@ -68,14 +68,7 @@ $pageTitle = $project['name'] . ' — Documents';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-1">
-  <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-  <div>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-    <a href="/pages/project_detail.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Fiche</a>
-  </div>
-</div>
-<p class="text-muted mb-4">Documents — <?= htmlspecialchars($project['type_label'] ?? '') ?></p>
+<?= company_header($project, 'documents') ?>
 
 <?php if (isset($_GET['created'])): ?><div class="alert alert-success">Catégorie ajoutée.</div><?php endif; ?>
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-success">Catégorie mise à jour.</div><?php endif; ?>
@@ -185,6 +178,5 @@ require __DIR__ . '/../inc/layout_header.php';
   dans les paramètres de partage OneDrive, pas ici.
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>

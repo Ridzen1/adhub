@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * MODÈLE DE CONFIGURATION DES CAISSES — À COPIER EN caisses.local.php.
+ *
+ * Contient des mots de passe : ne jamais versionner ni envoyer ce fichier.
+ * Sur o2switch, après l'avoir créé : droits 600 (lisible par le compte seul).
+ *
+ * 'etablissements' relie chaque établissement de caisse à une société ADHUB :
+ *   [numéro de l'établissement dans la caisse => id de la société dans ADHUB]
+ * L'id ADHUB est celui de l'URL du dashboard (project_dashboard.php?id=11).
+ * Le numéro de caisse s'affiche au premier lancement des scripts test_reel_*.php.
+ * Un établissement non relié est quand même synchronisé, mais n'alimente pas le dashboard.
+ */
+
+return [
+    // ---- L'Addition : un compte par restaurant (identifiants du back-office)
+    'laddition_accounts' => [
+        [
+            'label'          => 'Le Bellevue',
+            'login'          => 'email@exemple.fr',
+            'password'       => 'A_REMPLACER',
+            'etablissements' => [/* 26573 => 11 */],
+        ],
+    ],
+
+    // ---- Popina : compte du back-office Jalia
+    'popina_accounts' => [
+        [
+            'label'          => 'Chez Côme',
+            'email'          => 'email@exemple.fr',
+            'password'       => 'A_REMPLACER',
+            'etablissements' => [/* 10900 => 27 */],
+        ],
+    ],
+
+    // Optionnel : journal dans un fichier en plus de la sortie du cron
+    // 'log_file' => '/home/TONUSER/logs/caisses.log',
+];

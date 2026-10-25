@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/projects.php';
+require_once __DIR__ . '/../inc/double_auth.php';
 require_direction();
 
 $errors = [];
@@ -59,6 +60,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'revok
     exit;
 }
 
+// Réinitialisation de la double authentification (téléphone perdu, plus de codes de secours).
+// Pas sur son propre compte : chacun gère le sien depuis « Double authentification ».
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset_2fa') {
+    $cible = (int) ($_POST['user_id'] ?? 0);
+    if (csrf_valide() && $cible !== current_user()['id']) {
+        double_auth_desactiver($cible);
+        header('Location: /pages/admin_users.php?reset2fa=1#user-' . $cible);
+        exit;
+    }
+    $errors[] = "Réinitialisation refusée.";
+}
+
 $users       = get_all_users();
 $roles       = get_all_roles();
 $allProjects = get_all_projects();
@@ -67,10 +80,11 @@ $pageTitle = 'Utilisateurs';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<h1 class="mb-4">Utilisateurs et accès</h1>
+<?= page_header('Utilisateurs et accès', 'Comptes, rôles et droits par société.', '', 'Administration') ?>
 
 <?php if (isset($_GET['created'])): ?><div class="alert alert-success">Utilisateur créé.</div><?php endif; ?>
 <?php if (isset($_GET['granted'])): ?><div class="alert alert-success">Accès attribué.</div><?php endif; ?>
+<?php if (isset($_GET['reset2fa'])): ?><div class="alert alert-success">Double authentification réinitialisée : l'utilisateur la reconfigurera à sa prochaine connexion si elle est obligatoire pour son rôle.</div><?php endif; ?>
 <?php if (isset($_GET['revoked'])): ?><div class="alert alert-secondary">Accès retiré.</div><?php endif; ?>
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-secondary">Utilisateur mis à jour.</div><?php endif; ?>
 <?php foreach ($errors as $e): ?><div class="alert alert-danger"><?= htmlspecialchars($e) ?></div><?php endforeach; ?>
@@ -125,7 +139,23 @@ require __DIR__ . '/../inc/layout_header.php';
         <?php if (!$u['is_active']): ?>
           <span class="badge badge-archived text-white">Désactivé</span>
         <?php endif; ?>
+        <?php if ($u['totp_enabled']): ?>
+          <span class="badge bg-success" title="Double authentification activée">2FA</span>
+        <?php elseif (double_auth_est_obligatoire($u['role_code'])): ?>
+          <span class="badge bg-warning" title="Obligatoire pour ce rôle, sera demandée à la prochaine connexion">2FA à activer</span>
+        <?php else: ?>
+          <span class="badge bg-secondary" title="Connexion par mot de passe seul">Sans 2FA</span>
+        <?php endif; ?>
       </div>
+      <div class="d-flex gap-2">
+      <?php if ($u['totp_enabled'] && (int) $u['id'] !== current_user()['id']): ?>
+        <form method="post" onsubmit="return confirm('Réinitialiser la double authentification de cet utilisateur ? Son application ne sera plus reconnue.');">
+          <?= csrf_champ() ?>
+          <input type="hidden" name="action" value="reset_2fa">
+          <input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Réinitialiser la 2FA</button>
+        </form>
+      <?php endif; ?>
       <form method="post">
         <input type="hidden" name="action" value="toggle_active">
         <input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
@@ -134,6 +164,7 @@ require __DIR__ . '/../inc/layout_header.php';
           <?= $u['is_active'] ? 'Désactiver' : 'Réactiver' ?>
         </button>
       </form>
+      </div>
     </div>
     <div class="card-body">
       <?php if ($u['role_code'] === 'direction'): ?>

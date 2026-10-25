@@ -68,13 +68,8 @@ $pageTitle = $project['name'] . ' — Import du rapport de caisse';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-  <div>
-    <a href="/pages/saisie_quotidienne.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Saisie manuelle</a>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-  </div>
-</div>
+<?= company_header($project, 'saisie',
+      '<a href="/pages/saisie_quotidienne.php?id=' . $id . '" class="btn btn-sm btn-outline-dark">Saisie manuelle</a>') ?>
 
 <h5 class="text-muted mb-3">Import d'un rapport de caisse</h5>
 

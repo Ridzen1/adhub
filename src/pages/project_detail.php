@@ -129,13 +129,7 @@ $pageTitle = $project['name'];
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-  <div>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-    <a href="/pages/project_documents.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Documents</a>
-  </div>
-</div>
+<?= company_header($project, 'fiche') ?>
 
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-success">Projet mis à jour.</div><?php endif; ?>
 <?php if (isset($_GET['linked'])): ?><div class="alert alert-success">Lien créé.</div><?php endif; ?>

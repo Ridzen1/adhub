@@ -42,6 +42,18 @@ src/pages/index.php   → page de test
 database/schema.sql   → schéma + données de démo
 ```
 
+## Interface
+
+- Navigation en haut (plus de menu latéral) : vue d'ensemble, sélecteur de société avec recherche
+  (taper un nom puis Entrée), menu Administration (direction) et menu du compte.
+- Chaque société a ses onglets : tableau de bord, analyse des ventes, évolution, saisie, charges,
+  documents, fiche. Seuls les onglets autorisés pour l'utilisateur s'affichent.
+- Thème : `src/assets/adhub.css` (couleurs en variables en haut du fichier), réglages des graphiques
+  et recherche du menu : `src/assets/adhub.js`. Briques d'affichage partagées (montants, variations,
+  tuiles d'indicateurs, en-tête société) : `src/inc/ui.php`. Indicateurs consolidés : `src/inc/indicateurs.php`.
+- Bootstrap 5.3.3, Chart.js 4.4.1 et la police Inter sont servis depuis `src/assets/` : plus aucun
+  appel à un CDN, la page s'affiche même si un CDN est bloqué ou lent.
+
 ## Appliquer une migration
 
 Le premier démarrage a déjà exécuté `database/schema.sql`. Pour les fichiers de migration suivants (ex. `002_financial_entries.sql`), la base tourne déjà donc ils ne s'exécutent pas tout seuls. Deux façons de les appliquer :
@@ -130,6 +142,24 @@ Les sociétés relevées dans Pennylane sont insérées automatiquement (sans do
 
 Les soldes et taux d'occupation insérés sont des **valeurs de démonstration**, à remplacer par les vrais chiffres.
 
+## Double authentification (2FA)
+
+Migration `012_double_authentification.sql`. Code à 6 chiffres d'une application d'authentification
+(Google Authenticator, Microsoft Authenticator, 1Password, Bitwarden…), demandé après le mot de passe.
+
+- **Activation** : menu du compte → *Double authentification* : QR code (dessiné dans le navigateur,
+  le secret ne sort pas d'ADHUB) ou clé à saisir, puis confirmation par un premier code.
+  10 **codes de secours** à usage unique sont alors affichés une seule fois (copier, télécharger, imprimer).
+- **Obligatoire pour la direction** (`TOTP_ROLES_OBLIGATOIRES` dans `src/inc/double_auth.php`) :
+  à sa prochaine connexion, un compte direction sans 2FA est conduit à l'activation et ne peut rien
+  ouvrir d'autre avant. Facultative pour les autres rôles.
+- **Sécurité** : un code ne sert qu'une fois (anti-rejeu), tolérance de ± 30 s, 5 essais par connexion,
+  blocage de 15 min après 8 codes faux, seule une empreinte des codes de secours est stockée.
+- **Téléphone perdu** : se connecter avec un code de secours, puis *Changer de téléphone*. Sans code
+  de secours : un autre compte direction clique *Réinitialiser la 2FA* dans *Utilisateurs et accès*.
+  En dernier recours (seul compte direction) : `UPDATE users SET totp_enabled = 0 WHERE email = '…';` via Adminer/phpMyAdmin.
+- L'heure du serveur doit être juste (c'est le cas sur o2switch) : les codes dépendent de l'heure.
+
 ## Charges fixes et dates anniversaires
 
 `008_charges_fixes.sql` ajoute le suivi des charges récurrentes, accessible via le bouton
@@ -199,8 +229,70 @@ références nécessaires) : CA nul, moitié moins, ou 1,8 fois plus.
 L'outil **signale sans corriger** : il ne peut pas distinguer un oubli de clôture d'une mauvaise
 journée ou d'un jour de fermeture. La décision reste humaine.
 
+## Caisses : synchronisation L'Addition et Popina
+
+En attendant les clés API officielles, deux scripts se connectent chaque nuit aux back-offices
+avec l'identifiant et le mot de passe du restaurant, récupèrent le détail des ventes et
+remplissent la **saisie quotidienne** (source `api`, sans jamais écraser une saisie manuelle).
+Le détail reste stocké pour la page **Analyse des ventes** (bouton sur le dashboard d'une société).
+
+Ce que la page montre au dirigeant : CA TTC/HT et variation N-1, couverts, panier et ticket moyens,
+part solide / liquide, CA par jour et par heure, midi / soir, jours de la semaine, catégories,
+top et flop produits, salles, TVA, et pour Popina seulement : encaissements, serveurs, pourboires,
+offerts et annulations. L'Addition ne fournit ni couverts, ni serveurs, ni encaissements.
+
+### Installation
+
+1. Appliquer la migration : `database/011_caisses.sql`.
+2. Copier `src/config/caisses.local.php.exemple` en `config/caisses.local.php` (à côté de
+   `config.local.php`, `chmod 600`, jamais versionné) et remplir les comptes. La clé
+   `etablissements` relie chaque n° d'établissement de la caisse à l'id de la société dans ADHUB.
+3. Vérifier la connexion et lire les n° d'établissement :
+   `php cron/caisses/test_reel_laddition.php` et `php cron/caisses/test_reel_popina.php`.
+4. Lancer une première reprise : `php cron/caisses/popina_sync.php 2026-10-01 2026-10-24`
+   (idem `laddition_sync.php`). Ajouter `--force` pour remplacer des saisies non automatiques.
+5. Menu **Caisses** (direction) : classer les nouvelles catégories en solide / liquide / autre.
+6. Tâches cron cPanel (sans date, le script prend la veille) :
+
+```
+30 5 * * * /usr/local/bin/php ~/adhub/cron/caisses/laddition_sync.php >/dev/null 2>&1
+40 5 * * * /usr/local/bin/php ~/adhub/cron/caisses/popina_sync.php >/dev/null 2>&1
+```
+
+Une journée de L'Addition va jusqu'à 5 h le lendemain (`CAISSE_HEURE_BASCULE`), d'où un passage à 5 h 30.
+Les scripts sont idempotents : les relancer sur une période ne crée pas de doublon.
+Chaque passage est tracé dans `sync_runs` et visible dans le menu **Caisses**.
+
+### Limites
+
+Ces back-offices n'ont pas d'API publique : un changement de leur site peut casser la
+synchronisation (l'erreur apparaît alors dans le menu **Caisses**). Dès que les clés officielles
+arrivent, `cron/sync_api.php` prend le relais.
+
+### Tester sans les vrais comptes
+
+`mock/` contient deux faux serveurs :
+`php -S 127.0.0.1:8099 mock/laddition/router.php` et `php -S 127.0.0.1:8098 mock/popina/router.php`,
+à pointer depuis un `caisses.local.php` de test (comptes `bellevue@test.fr` / `test123` et
+`come@test.fr` / `popina123`).
+
+## Comptabilité : import Pennylane
+
+Pas de connexion automatique à Pennylane : la direction exporte les données à la main et les dépose
+dans **Administration → Import Pennylane** (migration `013_pennylane.sql`).
+
+- Le fichier Excel doit contenir les feuilles « Factures fournisseurs », « Factures clients » et
+  « Transactions bancaires ». Les colonnes sont repérées par leur titre.
+- Chaque ligne est reconnue par son identifiant Pennylane : réimporter un export plus récent met à
+  jour sans doublon. Le script SQL généré avec l'export peut aussi être passé dans phpMyAdmin.
+- Chaque société Pennylane est reliée à une société ADHUB. Les noms évidents le sont d'office ;
+  les noms ambigus (ex. « JAURES » : SCI ou SAS) restent à choisir sur la page d'import.
+- Une société reliée gagne un onglet **Comptabilité** : fournisseurs à payer (dont échus), achats HT,
+  flux bancaires, opérations à justifier, principaux fournisseurs, factures ouvertes.
+  La vue d'ensemble affiche le total à payer et les sociétés avec des factures échues.
+
 ## Prochaine étape
 
 - Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
-- Connecteur API Popina (une clé par établissement).
+- Connecteur API Popina officiel (une clé par établissement).
 - Déploiement sur l'hébergement.

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../inc/access.php';
+require_once __DIR__ . '/../inc/ui.php';
 
 $error = null;
 
@@ -12,50 +13,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (attempt_login($email, $password)) {
+    $user = verifier_identifiants($email, $password);
+    if ($user !== null && !empty($user['totp_enabled'])) {
+        // Mot de passe correct, il reste le code de l'application : la session
+        // n'est pas encore ouverte, on retient seulement qui est en train de se connecter.
+        start_session_once();
+        session_regenerate_id(true);
+        $_SESSION['auth_attente'] = ['user_id' => (int) $user['id'], 'depuis' => time(), 'essais' => 0];
+        header('Location: /pages/login_2fa.php');
+        exit;
+    }
+    if ($user !== null) {
+        ouvrir_session($user);
         header('Location: /pages/accueil.php');
         exit;
     }
     // Message volontairement vague : ne pas révéler si l'email existe.
     $error = "Identifiants incorrects.";
 }
+
+$info = isset($_GET['expire']) ? "La vérification a expiré. Reconnectez-vous." : null;
+
+$authTitre = 'Connexion';
+require __DIR__ . '/../inc/layout_auth_header.php';
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connexion</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body { background: #0E1C2B; height: 100vh; display: flex; align-items: center; }
-    .login-card { max-width: 400px; width: 100%; margin: 0 auto; }
-    .brand { color: #C8A84B; font-weight: bold; letter-spacing: 1px; font-size: 22px; text-align: center; margin-bottom: 6px; }
-    .subtitle { color: #8A93A6; font-size: 13px; text-align: center; margin-bottom: 24px; }
-  </style>
-</head>
-<body>
-  <div class="login-card">
-    <div class="brand">AD'HUB</div>
-    <div class="subtitle">Tableau de bord multi-sociétés</div>
-    <div class="card">
-      <div class="card-body p-4">
+        <h1 class="mb-1">Connexion</h1>
+        <p class="text-muted mb-4">Entrez vos identifiants pour accéder au tableau de bord.</p>
         <?php if ($error): ?>
-          <div class="alert alert-danger py-2"><?= htmlspecialchars($error) ?></div>
+          <div class="alert alert-danger py-2"><?= h($error) ?></div>
+        <?php elseif ($info): ?>
+          <div class="alert alert-warning py-2"><?= h($info) ?></div>
         <?php endif; ?>
         <form method="post">
           <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" name="email" class="form-control" required autofocus>
+            <label class="form-label">Adresse e-mail</label>
+            <input type="email" name="email" class="form-control form-control-lg" style="font-size:.95rem" required autofocus autocomplete="username">
           </div>
-          <div class="mb-3">
+          <div class="mb-4">
             <label class="form-label">Mot de passe</label>
-            <input type="password" name="password" class="form-control" required>
+            <input type="password" name="password" class="form-control form-control-lg" style="font-size:.95rem" required autocomplete="current-password">
           </div>
-          <button type="submit" class="btn btn-dark w-100">Se connecter</button>
+          <button type="submit" class="btn btn-dark btn-lg w-100" style="font-size:.95rem">Se connecter</button>
         </form>
-      </div>
-    </div>
-  </div>
-</body>
-</html>
+<?php require __DIR__ . '/../inc/layout_auth_footer.php'; ?>

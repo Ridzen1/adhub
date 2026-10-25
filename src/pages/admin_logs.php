@@ -9,8 +9,7 @@ $pageTitle = 'Journal des accès';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<h1 class="mb-1">Journal des accès aux documents</h1>
-<p class="text-muted mb-4">200 dernières ouvertures de dossier.</p>
+<?= page_header('Journal des accès aux documents', '200 dernières ouvertures de dossier.', '', 'Administration') ?>
 
 <div class="card">
   <div class="card-body p-0">

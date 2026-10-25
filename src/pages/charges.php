@@ -118,13 +118,7 @@ function badge_alerte(array $c): string
 }
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-  <div>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-    <a href="/pages/project_documents.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Documents</a>
-  </div>
-</div>
+<?= company_header($project, 'charges') ?>
 
 <?php if (isset($_GET['created'])): ?><div class="alert alert-success">Charge ajoutée.</div><?php endif; ?>
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-success">Charge mise à jour.</div><?php endif; ?>
@@ -156,25 +150,10 @@ function badge_alerte(array $c): string
   </div>
 <?php endif; ?>
 
-<div class="row mb-4">
-  <div class="col-md-4">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Total charges / an</div>
-      <div class="fs-4 fw-bold"><?= number_format($totalAnnuel, 0, ',', ' ') ?> €</div>
-    </div></div>
-  </div>
-  <div class="col-md-4">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Équivalent mensuel</div>
-      <div class="fs-4 fw-bold"><?= number_format($totalAnnuel / 12, 0, ',', ' ') ?> €</div>
-    </div></div>
-  </div>
-  <div class="col-md-4">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Charges suivies</div>
-      <div class="fs-4 fw-bold"><?= count(array_filter($charges, fn($c) => $c['is_active'])) ?></div>
-    </div></div>
-  </div>
+<div class="kpi-grid">
+  <?= kpi('Total charges / an', eur($totalAnnuel), ['icon' => 'layers', 'hero' => true]) ?>
+  <?= kpi('Équivalent mensuel', eur($totalAnnuel / 12), ['icon' => 'calendar']) ?>
+  <?= kpi('Charges suivies', (string) count(array_filter($charges, fn($c) => $c['is_active'])), ['icon' => 'receipt']) ?>
 </div>
 
 <div class="card mb-4">
@@ -389,6 +368,5 @@ function badge_alerte(array $c): string
   </div>
 <?php endif; ?>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>

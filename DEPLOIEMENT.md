@@ -110,6 +110,10 @@ Onglet **Importer**, puis exécuter les fichiers **dans cet ordre strict** :
 7. `007_mdb_et_kpi.sql`
 8. `008_charges_fixes.sql`
 9. `009_rapport_caisse.sql`
+10. `010_restant_entreprises.sql`
+11. `011_caisses.sql`
+12. `012_double_authentification.sql` (double authentification : à passer **avant** de mettre en ligne les fichiers qui l'utilisent, sinon la connexion échoue)
+13. `013_pennylane.sql` (tables de l'import Pennylane ; à passer avant ou après le script SQL généré avec l'export, les deux sont compatibles)
 
 Chaque fichier s'appuie sur les précédents : un ordre différent provoquera des erreurs.
 
