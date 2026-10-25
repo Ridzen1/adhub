@@ -51,6 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="login-panel">
       <div class="login-box">
+        <div class="ad-brand login-brand-mobile">
+          <span class="ad-brand-mark">AD</span>
+          <span class="ad-brand-name">AD<span>'</span>HUB</span>
+        </div>
         <h1 class="mb-1">Connexion</h1>
         <p class="text-muted mb-4">Entrez vos identifiants pour accéder au tableau de bord.</p>
         <?php if ($error): ?>

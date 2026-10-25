@@ -110,7 +110,7 @@ require __DIR__ . '/../inc/layout_header.php';
       </li>
     <?php endforeach; ?>
   </ul>
-  <form method="get" class="d-flex gap-1 align-items-center ms-md-3">
+  <form method="get" class="d-flex gap-1 align-items-center ms-md-3 date-range">
     <input type="hidden" name="id" value="<?= $id ?>">
     <input type="hidden" name="periode" value="perso">
     <input type="date" name="du" value="<?= htmlspecialchars($du) ?>" class="form-control form-control-sm">
@@ -519,7 +519,7 @@ new Chart(document.getElementById('chartCategories'), {
       }, $categories, array_keys($categories))) ?>
     }]
   },
-  options: { cutout: '62%', plugins: { legend: { position: 'right' }, tooltip: { mode: 'nearest', callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } } }
+  options: { cutout: '62%', plugins: { legend: { position: ADHUB.legendPos() }, tooltip: { mode: 'nearest', callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } } }
 });
 <?php endif; ?>
 </script>

@@ -62,7 +62,25 @@
     d.scale.grid.drawTicks = false;
     d.scale.border = { display: false };
     d.scale.ticks.padding = 8;
+    if (Chart.defaults.scales && Chart.defaults.scales.category) {
+      Chart.defaults.scales.category.ticks.maxRotation = 0;
+      Chart.defaults.scales.category.ticks.autoSkipPadding = 10;
+    }
   }
+  /** Position de légende adaptée à la largeur d'écran */
+  C.legendPos = function (large) { return window.innerWidth < 768 ? 'bottom' : (large || 'right'); };
+
+  // Tout tableau qui n'est pas déjà dans un conteneur défilant y est placé :
+  // sur téléphone il défile horizontalement au lieu d'élargir la page.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('table.table').forEach(function (t) {
+      if (t.closest('.table-responsive')) return;
+      var w = document.createElement('div');
+      w.className = 'table-responsive';
+      t.parentNode.insertBefore(w, t);
+      w.appendChild(t);
+    });
+  });
 
   // Recherche dans le sélecteur de société
   document.addEventListener('input', function (e) {
