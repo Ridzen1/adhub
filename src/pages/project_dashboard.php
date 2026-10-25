@@ -64,6 +64,7 @@ require __DIR__ . '/../inc/layout_header.php';
     <?php if ($estRestaurant): ?>
       <a href="/pages/saisie_quotidienne.php?id=<?= $id ?>" class="btn btn-sm btn-dark">Saisie quotidienne</a>
       <a href="/pages/evolution.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Évolution</a>
+      <a href="/pages/analyse_caisse.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Analyse des ventes</a>
     <?php endif; ?>
     <a href="/pages/project_detail.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Fiche</a>
     <a href="/pages/charges.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Charges</a>

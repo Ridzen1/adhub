@@ -4,3 +4,7 @@ src/config/config.local.php
 /data/
 # Clés API de la synchronisation — ne jamais versionner
 src/config/sync.local.php
+# Identifiants des caisses — ne jamais versionner
+src/config/caisses.local.php
+src/cron/caisses/test_reel_reponse.json
+mock/*/state*.json

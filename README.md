@@ -199,8 +199,55 @@ références nécessaires) : CA nul, moitié moins, ou 1,8 fois plus.
 L'outil **signale sans corriger** : il ne peut pas distinguer un oubli de clôture d'une mauvaise
 journée ou d'un jour de fermeture. La décision reste humaine.
 
+## Caisses : synchronisation L'Addition et Popina
+
+En attendant les clés API officielles, deux scripts se connectent chaque nuit aux back-offices
+avec l'identifiant et le mot de passe du restaurant, récupèrent le détail des ventes et
+remplissent la **saisie quotidienne** (source `api`, sans jamais écraser une saisie manuelle).
+Le détail reste stocké pour la page **Analyse des ventes** (bouton sur le dashboard d'une société).
+
+Ce que la page montre au dirigeant : CA TTC/HT et variation N-1, couverts, panier et ticket moyens,
+part solide / liquide, CA par jour et par heure, midi / soir, jours de la semaine, catégories,
+top et flop produits, salles, TVA, et pour Popina seulement : encaissements, serveurs, pourboires,
+offerts et annulations. L'Addition ne fournit ni couverts, ni serveurs, ni encaissements.
+
+### Installation
+
+1. Appliquer la migration : `database/011_caisses.sql`.
+2. Copier `src/config/caisses.local.php.exemple` en `config/caisses.local.php` (à côté de
+   `config.local.php`, `chmod 600`, jamais versionné) et remplir les comptes. La clé
+   `etablissements` relie chaque n° d'établissement de la caisse à l'id de la société dans ADHUB.
+3. Vérifier la connexion et lire les n° d'établissement :
+   `php cron/caisses/test_reel_laddition.php` et `php cron/caisses/test_reel_popina.php`.
+4. Lancer une première reprise : `php cron/caisses/popina_sync.php 2026-10-01 2026-10-24`
+   (idem `laddition_sync.php`). Ajouter `--force` pour remplacer des saisies non automatiques.
+5. Menu **Caisses** (direction) : classer les nouvelles catégories en solide / liquide / autre.
+6. Tâches cron cPanel (sans date, le script prend la veille) :
+
+```
+30 5 * * * /usr/local/bin/php ~/adhub/cron/caisses/laddition_sync.php >/dev/null 2>&1
+40 5 * * * /usr/local/bin/php ~/adhub/cron/caisses/popina_sync.php >/dev/null 2>&1
+```
+
+Une journée de L'Addition va jusqu'à 5 h le lendemain (`CAISSE_HEURE_BASCULE`), d'où un passage à 5 h 30.
+Les scripts sont idempotents : les relancer sur une période ne crée pas de doublon.
+Chaque passage est tracé dans `sync_runs` et visible dans le menu **Caisses**.
+
+### Limites
+
+Ces back-offices n'ont pas d'API publique : un changement de leur site peut casser la
+synchronisation (l'erreur apparaît alors dans le menu **Caisses**). Dès que les clés officielles
+arrivent, `cron/sync_api.php` prend le relais.
+
+### Tester sans les vrais comptes
+
+`mock/` contient deux faux serveurs :
+`php -S 127.0.0.1:8099 mock/laddition/router.php` et `php -S 127.0.0.1:8098 mock/popina/router.php`,
+à pointer depuis un `caisses.local.php` de test (comptes `bellevue@test.fr` / `test123` et
+`come@test.fr` / `popina123`).
+
 ## Prochaine étape
 
 - Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
-- Connecteur API Popina (une clé par établissement).
+- Connecteur API Popina officiel (une clé par établissement), puis Pennylane.
 - Déploiement sur l'hébergement.

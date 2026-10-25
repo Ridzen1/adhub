@@ -54,6 +54,7 @@ require __DIR__ . '/../inc/layout_header.php';
   <div>
     <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
     <a href="/pages/saisie_quotidienne.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Saisie</a>
+    <a href="/pages/analyse_caisse.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Analyse des ventes</a>
   </div>
 </div>
 

@@ -63,6 +63,7 @@ $currentProjectId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
       <a class="top-link" href="/pages/projects.php">Gérer les sociétés</a>
       <a class="top-link" href="/pages/admin_users.php">Utilisateurs</a>
       <a class="top-link" href="/pages/admin_logs.php">Journal des accès</a>
+      <a class="top-link" href="/pages/admin_caisses.php">Caisses</a>
     <?php else: ?>
       <a class="top-link" href="/pages/accueil.php">Mes sociétés</a>
     <?php endif; ?>
