@@ -118,13 +118,7 @@ function badge_alerte(array $c): string
 }
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-  <div>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-    <a href="/pages/project_documents.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Documents</a>
-  </div>
-</div>
+<?= company_header($project, 'charges') ?>
 
 <?php if (isset($_GET['created'])): ?><div class="alert alert-success">Charge ajoutée.</div><?php endif; ?>
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-success">Charge mise à jour.</div><?php endif; ?>
@@ -389,6 +383,5 @@ function badge_alerte(array $c): string
   </div>
 <?php endif; ?>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>

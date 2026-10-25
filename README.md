@@ -42,6 +42,18 @@ src/pages/index.php   → page de test
 database/schema.sql   → schéma + données de démo
 ```
 
+## Interface
+
+- Navigation en haut (plus de menu latéral) : vue d'ensemble, sélecteur de société avec recherche
+  (taper un nom puis Entrée), menu Administration (direction) et menu du compte.
+- Chaque société a ses onglets : tableau de bord, analyse des ventes, évolution, saisie, charges,
+  documents, fiche. Seuls les onglets autorisés pour l'utilisateur s'affichent.
+- Thème : `src/assets/adhub.css` (couleurs en variables en haut du fichier), réglages des graphiques
+  et recherche du menu : `src/assets/adhub.js`. Briques d'affichage partagées (montants, variations,
+  tuiles d'indicateurs, en-tête société) : `src/inc/ui.php`. Indicateurs consolidés : `src/inc/indicateurs.php`.
+- Bootstrap 5.3.3, Chart.js 4.4.1 et la police Inter sont servis depuis `src/assets/` : plus aucun
+  appel à un CDN, la page s'affiche même si un CDN est bloqué ou lent.
+
 ## Appliquer une migration
 
 Le premier démarrage a déjà exécuté `database/schema.sql`. Pour les fichiers de migration suivants (ex. `002_financial_entries.sql`), la base tourne déjà donc ils ne s'exécutent pas tout seuls. Deux façons de les appliquer :

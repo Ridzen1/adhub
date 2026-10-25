@@ -92,34 +92,20 @@ function badge_var(?float $v): string
 }
 
 const NOMS_JOURS = [1 => 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-const COULEURS_FAMILLE = ['solide' => '#2D6A4F', 'liquide' => '#2A78D6', 'autre' => '#AAB4C4'];
+const COULEURS_FAMILLE = ['solide' => '#0F7B55', 'liquide' => '#1F5FAD', 'autre' => '#9CA3AF'];
 
 $pageTitle = $project['name'] . ' — Analyse des ventes';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-start mb-3">
-  <div>
-    <h1 class="mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-    <div class="text-muted">Analyse des ventes
-      <?php if ($sources): ?>
-        &middot; caisse <?= htmlspecialchars(implode(' + ', array_map(fn($s) => CAISSE_SOURCES[$s], $sources))) ?>
-      <?php endif; ?>
-    </div>
-  </div>
-  <div>
-    <a href="/pages/project_dashboard.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Dashboard</a>
-    <a href="/pages/evolution.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Évolution</a>
-    <a href="/pages/saisie_quotidienne.php?id=<?= $id ?>" class="btn btn-sm btn-outline-dark">Saisie</a>
-  </div>
-</div>
+<?= company_header($project, 'analyse', '',
+      $sources ? 'Caisse ' . h(implode(' + ', array_map(fn($s) => CAISSE_SOURCES[$s], $sources))) : 'Aucune caisse reliée') ?>
 
 <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
   <ul class="nav nav-pills">
     <?php foreach ($presets as $k => [$lab]): ?>
       <li class="nav-item">
         <a class="nav-link py-1 <?= $periode === $k ? 'active' : '' ?>"
-           style="<?= $periode === $k ? 'background:#0E1C2B' : '' ?>"
            href="?id=<?= $id ?>&periode=<?= $k ?>"><?= $lab ?></a>
       </li>
     <?php endforeach; ?>
@@ -155,80 +141,54 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php else: ?>
 
 <!-- Indicateurs -->
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Chiffre d'affaires TTC</div>
-      <div class="fs-3 fw-bold"><?= euro($kpis['ca_ttc']) ?></div>
-      <div class="small">
-        <?= badge_var(variation($kpis['ca_ttc'], $kpis['n1_ca_ttc'])) ?>
-        <span class="text-muted">HT <?= euro($kpis['ca_ht']) ?></span>
-      </div>
-    </div></div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Couverts</div>
-      <div class="fs-3 fw-bold"><?= $kpis['couverts'] > 0 ? number_format($kpis['couverts'], 0, ',', ' ') : '—' ?></div>
-      <div class="small">
-        <?= $kpis['couverts'] > 0 ? badge_var(variation((float) $kpis['couverts'], $kpis['n1_couverts'] !== null ? (float) $kpis['n1_couverts'] : null)) : '' ?>
-        <span class="text-muted">Panier moyen <?= euro($kpis['panier_moyen'], 2) ?></span>
-      </div>
-    </div></div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Additions</div>
-      <div class="fs-3 fw-bold"><?= $kpis['tickets'] > 0 ? number_format($kpis['tickets'], 0, ',', ' ') : '—' ?></div>
-      <div class="small text-muted">Ticket moyen <?= euro($kpis['ticket_moyen'], 2) ?></div>
-    </div></div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">CA moyen par jour ouvert</div>
-      <div class="fs-3 fw-bold"><?= euro($kpis['ca_par_jour']) ?></div>
-      <div class="small text-muted">
-        Solide <?= pct($kpis['ca_solide'], $kpis['ca_solide'] + $kpis['ca_liquide']) ?>
-        &middot; Liquide <?= pct($kpis['ca_liquide'], $kpis['ca_solide'] + $kpis['ca_liquide']) ?>
-      </div>
-    </div></div>
-  </div>
-</div>
-
-<?php if ($kpis['remises'] > 0 || $kpis['offerts'] > 0 || $kpis['annulations'] > 0 || $kpis['pourboires'] > 0): ?>
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3">
-    <div class="card h-100 border-warning"><div class="card-body">
-      <div class="text-muted small">Remises et offerts</div>
-      <div class="fs-4 fw-bold"><?= euro($kpis['remises'] + $kpis['offerts']) ?></div>
-      <div class="small text-muted"><?= pct($kpis['remises'] + $kpis['offerts'], $kpis['ca_ttc'] + $kpis['remises'] + $kpis['offerts']) ?> du CA brut</div>
-    </div></div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Lignes annulées</div>
-      <div class="fs-4 fw-bold"><?= $kpis['annulations'] ?></div>
-      <?php if ($kpis['annulations_ttc'] > 0): ?>
-        <div class="small text-muted"><?= euro($kpis['annulations_ttc'], 2) ?></div>
-      <?php endif; ?>
-    </div></div>
-  </div>
+<?php $mixTot = $kpis['ca_solide'] + $kpis['ca_liquide']; ?>
+<div class="kpi-grid">
+  <?= kpi("Chiffre d'affaires TTC", euro($kpis['ca_ttc']), [
+        'hero' => true, 'icon' => 'receipt',
+        'foot' => delta(variation($kpis['ca_ttc'], $kpis['n1_ca_ttc']), false, 'vs N-1') . '<span>HT ' . euro($kpis['ca_ht']) . '</span>',
+      ]) ?>
+  <?= kpi('CA moyen par jour ouvert', euro($kpis['ca_par_jour']), [
+        'icon' => 'calendar', 'foot' => '<span>' . $kpis['jours'] . ' jour(s) avec des ventes</span>',
+      ]) ?>
+  <?php if ($kpis['couverts'] > 0): ?>
+    <?= kpi('Couverts', number_format($kpis['couverts'], 0, ',', "\u{202F}"), [
+          'icon' => 'users',
+          'foot' => delta(variation((float) $kpis['couverts'], $kpis['n1_couverts'] !== null ? (float) $kpis['n1_couverts'] : null), false, 'vs N-1')
+                  . '<span>Panier moyen <strong class="text-body">' . euro($kpis['panier_moyen'], 2) . '</strong></span>',
+        ]) ?>
+  <?php endif; ?>
+  <?php if ($kpis['tickets'] > 0): ?>
+    <?= kpi('Additions', number_format($kpis['tickets'], 0, ',', "\u{202F}"), [
+          'icon' => 'file', 'foot' => '<span>Ticket moyen <strong class="text-body">' . euro($kpis['ticket_moyen'], 2) . '</strong></span>',
+        ]) ?>
+  <?php endif; ?>
+  <?php if ($mixTot > 0): ?>
+    <?= kpi('Solide / liquide', pct($kpis['ca_solide'], $mixTot) . ' <small>/ ' . pct($kpis['ca_liquide'], $mixTot) . '</small>', [
+          'icon' => 'pie',
+          'foot' => '<div class="meter" style="flex:1;min-width:80px"><span style="width:' . round($kpis['ca_solide'] / $mixTot * 100) . '%;background:#0F7B55"></span></div>',
+        ]) ?>
+  <?php endif; ?>
+  <?php if ($kpis['remises'] > 0 || $kpis['offerts'] > 0): ?>
+    <?= kpi('Remises et offerts', euro($kpis['remises'] + $kpis['offerts']), [
+          'icon' => 'percent',
+          'foot' => '<span>' . pct($kpis['remises'] + $kpis['offerts'], $kpis['ca_ttc'] + $kpis['remises'] + $kpis['offerts']) . ' du CA brut</span>',
+        ]) ?>
+  <?php endif; ?>
+  <?php if ($kpis['annulations'] > 0): ?>
+    <?= kpi('Lignes annulées', (string) $kpis['annulations'], [
+          'icon' => 'alert', 'foot' => $kpis['annulations_ttc'] > 0 ? '<span>' . euro($kpis['annulations_ttc'], 2) . '</span>' : '',
+        ]) ?>
+  <?php endif; ?>
   <?php if ($kpis['pourboires'] > 0): ?>
-  <div class="col-6 col-lg-3">
-    <div class="card h-100"><div class="card-body">
-      <div class="text-muted small">Pourboires</div>
-      <div class="fs-4 fw-bold"><?= euro($kpis['pourboires'], 2) ?></div>
-    </div></div>
-  </div>
+    <?= kpi('Pourboires', euro($kpis['pourboires'], 2), ['icon' => 'wallet']) ?>
   <?php endif; ?>
 </div>
-<?php endif; ?>
 
 <!-- CA par jour -->
 <?php if (count($parJour) > 1): ?>
 <div class="card mb-4">
   <div class="card-header">Chiffre d'affaires jour par jour</div>
-  <div class="card-body"><canvas id="chartJours" height="70"></canvas></div>
+  <div class="card-body"><div class="chart-box"><canvas id="chartJours"></canvas></div></div>
 </div>
 <?php endif; ?>
 
@@ -238,7 +198,7 @@ require __DIR__ . '/../inc/layout_header.php';
   <div class="col-lg-8">
     <div class="card h-100">
       <div class="card-header">Ventes par heure</div>
-      <div class="card-body"><canvas id="chartHeures" height="110"></canvas></div>
+      <div class="card-body"><div class="chart-box sm"><canvas id="chartHeures"></canvas></div></div>
     </div>
   </div>
   <?php endif; ?>
@@ -297,7 +257,7 @@ require __DIR__ . '/../inc/layout_header.php';
   <div class="col-lg-5">
     <div class="card h-100">
       <div class="card-header">Répartition par catégorie</div>
-      <div class="card-body"><canvas id="chartCategories" height="220"></canvas></div>
+      <div class="card-body"><div class="chart-box"><canvas id="chartCategories"></canvas></div></div>
     </div>
   </div>
   <div class="col-lg-7">
@@ -513,7 +473,6 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php endif; ?>
 
 <?php if (count($parJour) > 1 || $parHeure || $categories): ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 <?php if (count($parJour) > 1): ?>
 new Chart(document.getElementById('chartJours'), {
@@ -521,15 +480,16 @@ new Chart(document.getElementById('chartJours'), {
   data: {
     labels: <?= json_encode(array_map(fn($j) => date('d/m', strtotime($j['jour'])), $parJour)) ?>,
     datasets: [
-      { label: 'Solide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_solide'], $parJour)) ?>, backgroundColor: '#2D6A4F', stack: 'ca' },
-      { label: 'Liquide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_liquide'], $parJour)) ?>, backgroundColor: '#2A78D6', stack: 'ca' },
+      { label: 'Solide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_solide'], $parJour)) ?>, backgroundColor: '#0F7B55', stack: 'ca', maxBarThickness: 26 },
+      { label: 'Liquide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_liquide'], $parJour)) ?>, backgroundColor: '#1F5FAD', stack: 'ca', maxBarThickness: 26 },
       { label: 'Autre / non réparti', data: <?= json_encode(array_map(
           fn($j) => max(0, round((float) $j['ca_ttc'] - (float) $j['ca_solide'] - (float) $j['ca_liquide'], 2)), $parJour)) ?>,
-        backgroundColor: '#AAB4C4', stack: 'ca' }
+        backgroundColor: '#CBD2DB', stack: 'ca', maxBarThickness: 26 }
     ]
   },
-  options: { responsive: true, plugins: { legend: { position: 'bottom' } },
-             scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+  options: { plugins: { legend: { position: 'top', align: 'end' }, tooltip: { callbacks: { label: function (x) { return ' ' + x.dataset.label + ' : ' + ADHUB.eur(x.raw); } } } },
+             scales: { x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
+                       y: { stacked: true, beginAtZero: true, ticks: { callback: function (v) { return ADHUB.eurShort(v); } } } } }
 });
 <?php endif; ?>
 
@@ -539,9 +499,10 @@ new Chart(document.getElementById('chartHeures'), {
   data: {
     labels: <?= json_encode(array_map(fn($h) => $h['heure'] . 'h', $parHeure)) ?>,
     datasets: [{ label: 'CA TTC', data: <?= json_encode(array_map(fn($h) => (float) $h['ttc'], $parHeure)) ?>,
-                 backgroundColor: '#C8A84B', borderRadius: 4 }]
+                 backgroundColor: '#C8A84B', maxBarThickness: 34 }]
   },
-  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } },
+             scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: function (v) { return ADHUB.eurShort(v); } } } } }
 });
 <?php endif; ?>
 
@@ -553,12 +514,12 @@ new Chart(document.getElementById('chartCategories'), {
     datasets: [{
       data: <?= json_encode(array_map(fn($c) => (float) $c['ttc'], $categories)) ?>,
       backgroundColor: <?= json_encode(array_map(function ($c, $i) {
-          $palette = ['#0E1C2B', '#C8A84B', '#2D6A4F', '#2A78D6', '#8E5572', '#E07A5F', '#3D405B', '#81B29A', '#F2CC8F', '#6B7280', '#B5838D', '#457B9D'];
+          $palette = ['#1F5FAD', '#C8A84B', '#0F7B55', '#7C5CC4', '#D9673B', '#2BA0B5', '#0E1C2B', '#81B29A', '#E3B5A4', '#9CA3AF', '#B5838D', '#457B9D'];
           return $palette[$i % count($palette)];
       }, $categories, array_keys($categories))) ?>
     }]
   },
-  options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+  options: { cutout: '62%', plugins: { legend: { position: 'right' }, tooltip: { mode: 'nearest', callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } } }
 });
 <?php endif; ?>
 </script>

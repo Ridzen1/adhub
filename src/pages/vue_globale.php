@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/projects.php';
 require_once __DIR__ . '/../inc/charges.php';
+require_once __DIR__ . '/../inc/indicateurs.php';
+require_once __DIR__ . '/../inc/ui.php';
 require_direction(); // vue consolidée : direction uniquement
 
 $projects = get_global_overview();
@@ -23,12 +25,11 @@ function afficher_solde(array $p): string
     if ($p['solde_bancaire'] === null) {
         return '<span class="text-muted">—</span>';
     }
-    $montant = number_format((float) $p['solde_bancaire'], 0, ',', ' ') . ' €';
-    $classe  = (float) $p['solde_bancaire'] < 0 ? 'text-danger fw-bold' : 'fw-bold';
-    $alerte  = solde_est_perime($p['solde_maj_le'])
-        ? ' <span class="badge bg-warning text-dark" title="Donnée non actualisée depuis plus de 30 jours">ancien</span>'
+    $classe = (float) $p['solde_bancaire'] < 0 ? 'text-danger fw-semibold' : 'fw-semibold';
+    $alerte = solde_est_perime($p['solde_maj_le'])
+        ? '<span class="stale" title="Mis à jour le ' . date('d/m/Y', strtotime($p['solde_maj_le'])) . '">ancien</span>'
         : '';
-    return '<span class="' . $classe . '">' . $montant . '</span>' . $alerte;
+    return '<span class="' . $classe . '">' . eur((float) $p['solde_bancaire']) . '</span>' . $alerte;
 }
 
 function afficher_occupation(array $p): string
@@ -38,11 +39,14 @@ function afficher_occupation(array $p): string
     }
     $loues = (int) ($p['lots_loues'] ?? 0);
     $total = (int) $p['lots_total'];
-    $classe = $loues < $total ? 'text-danger' : '';
-    return '<span class="' . $classe . '">' . $loues . '/' . $total . ' logements loués</span>';
+    $taux  = $loues / $total * 100;
+    $etat  = $taux >= 100 ? 'ok' : ($taux >= 75 ? 'warn' : 'bad');
+    return '<div class="d-flex align-items-center justify-content-end gap-2">'
+         . '<span class="' . ($loues < $total ? 'text-danger fw-semibold' : '') . '">' . $loues . '/' . $total . '</span>'
+         . '<div class="meter ' . $etat . '" style="width:70px"><span style="width:' . round($taux) . '%"></span></div>'
+         . '</div>';
 }
 
-// Totaux de trésorerie par famille, pour la ligne de synthèse en haut
 function total_solde(array $liste): float
 {
     $t = 0.0;
@@ -52,49 +56,122 @@ function total_solde(array $liste): float
     return $t;
 }
 
+// --- Indicateurs consolidés -------------------------------------------------
 $totalGeneral = total_solde($projects);
+$nbPerimes    = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !== null && solde_est_perime($p['solde_maj_le'])));
+$nbNegatifs   = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !== null && (float) $p['solde_bancaire'] < 0));
 
-$pageTitle = 'Vue globale';
+$idsRestos = array_map(fn($p) => (int) $p['id'], $groupes['restaurants']);
+$moisResto = comparatif_societes($idsRestos, 'mois');
+$hierResto = comparatif_societes($idsRestos, 'jour');
+
+$aujourdhui = new DateTimeImmutable('today');
+$du30 = $aujourdhui->modify('-30 days')->format('Y-m-d');
+$au30 = $aujourdhui->modify('-1 day')->format('Y-m-d');
+$quotidien = ca_quotidien_societes($idsRestos, $du30, $au30);
+
+$caMoisParResto = ca_par_societe($idsRestos, $moisResto['bornes']['debut'], $moisResto['bornes']['fin']);
+$caN1ParResto   = ca_par_societe($idsRestos, $moisResto['bornes']['n1_debut'], $moisResto['bornes']['n1_fin']);
+$caHierParResto = ca_par_societe($idsRestos, $hierResto['bornes']['debut'], $hierResto['bornes']['fin']);
+
+$lotsTotal = 0;
+$lotsLoues = 0;
+foreach ($groupes['sci'] as $p) {
+    $lotsTotal += (int) ($p['lots_total'] ?? 0);
+    $lotsLoues += (int) ($p['lots_loues'] ?? 0);
+}
+$tauxOccupation = $lotsTotal > 0 ? $lotsLoues / $lotsTotal * 100 : null;
+
+$tousIds  = array_map(fn($p) => (int) $p['id'], $projects);
+$annee    = (int) date('Y');
+$ytd      = resultat_annee($tousIds, $annee);
+$ytdNet   = $ytd['revenus'] - $ytd['charges'];
+$marge    = $ytd['revenus'] > 0 ? $ytdNet / $ytd['revenus'] * 100 : null;
+$dernierMois = (int) get_db()->query("SELECT COALESCE(MAX(MONTH(period_date)), 0) FROM financial_entries WHERE YEAR(period_date) = " . $annee)->fetchColumn();
+$ytdN1    = $dernierMois ? resultat_annee($tousIds, $annee - 1, $dernierMois) : null;
+$varNet   = $ytdN1 ? ecart_pct($ytdNet, $ytdN1['revenus'] - $ytdN1['charges']) : null;
+
+$urgentes = array_values(array_filter($alertes, fn($a) => in_array($a['alerte'], ['depasse', 'urgent'], true)));
+
+$sections = [
+    'restaurants' => ['titre' => 'Restaurants',          'icone' => 'utensils',  'classe' => 't-resto'],
+    'sci'         => ['titre' => 'Immobilier locatif',   'icone' => 'home',      'classe' => 't-sci'],
+    'mdb'         => ['titre' => 'Marchands de biens',   'icone' => 'briefcase', 'classe' => 't-mdb'],
+    'autres'      => ['titre' => 'Holdings et autres',   'icone' => 'layers',    'classe' => 't-autres'],
+];
+
+// Répartition de la trésorerie, dans l'ordre des sections
+$couleursFamille = ['restaurants' => '#0F7B55', 'sci' => '#1F5FAD', 'mdb' => '#A86A05', 'autres' => '#C8A84B'];
+$repartition = [];
+foreach ($sections as $cle => $s) {
+    if ($groupes[$cle]) {
+        $repartition[] = ['titre' => $s['titre'], 'total' => total_solde($groupes[$cle]), 'couleur' => $couleursFamille[$cle]];
+    }
+}
+
+$moisLabel = format_mois_fr((int) date('Y'), (int) date('n'));
+
+$pageTitle = "Vue d'ensemble";
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="mb-0">Vue d'ensemble</h1>
-  <div class="text-end">
-    <div class="text-muted small">Trésorerie totale</div>
-    <div class="fs-4 fw-bold <?= $totalGeneral < 0 ? 'text-danger' : '' ?>">
-      <?= number_format($totalGeneral, 0, ',', ' ') ?> €
-    </div>
-  </div>
+<?= page_header(
+    "Vue d'ensemble",
+    count($projects) . ' sociétés actives · données au ' . date('d/m/Y'),
+    '<a href="/pages/projects.php" class="btn btn-sm btn-outline-dark">' . icon('plus', 14) . ' Nouvelle société</a>',
+    'AD Holding'
+) ?>
+
+<div class="kpi-grid">
+  <?= kpi('Trésorerie consolidée', eur($totalGeneral), [
+        'hero' => true, 'icon' => 'bank',
+        'foot' => '<span>' . count($projects) . ' sociétés</span>'
+                . ($nbNegatifs ? '<span style="color:#FCA5A5">' . $nbNegatifs . ' à découvert</span>' : '')
+                . ($nbPerimes ? '<span>' . $nbPerimes . ' solde' . ($nbPerimes > 1 ? 's' : '') . ' ancien' . ($nbPerimes > 1 ? 's' : '') . '</span>' : ''),
+      ]) ?>
+  <?= kpi('CA restaurants · ' . $moisLabel, eur($moisResto['actuel']['ca']), [
+        'icon' => 'utensils',
+        'foot' => $moisResto['var'] !== null ? delta($moisResto['var'], false, 'vs N-1') : 'Pas de comparaison N-1',
+        'spark' => 'sparkRestos',
+      ]) ?>
+  <?= kpi('CA restaurants · hier', eur($hierResto['actuel']['ca']), [
+        'icon' => 'calendar',
+        'foot' => ($hierResto['var'] !== null ? delta($hierResto['var'], false, 'vs même jour N-1') : date('d/m', strtotime($hierResto['bornes']['debut']))),
+      ]) ?>
+  <?= kpi("Taux d'occupation", $tauxOccupation !== null ? pourcent($tauxOccupation) : '—', [
+        'icon' => 'home',
+        'foot' => $lotsTotal ? $lotsLoues . ' lots loués sur ' . $lotsTotal
+                . ($lotsTotal - $lotsLoues > 0 ? ' · <span class="text-danger fw-semibold">' . ($lotsTotal - $lotsLoues) . ' vacant' . ($lotsTotal - $lotsLoues > 1 ? 's' : '') . '</span>' : '')
+                : 'Aucun lot renseigné',
+      ]) ?>
+  <?= kpi('Résultat net ' . $annee, eur($ytdNet), [
+        'icon' => 'trend',
+        'foot' => ($marge !== null ? 'Marge ' . pourcent($marge, 1) : '')
+                . ($varNet !== null ? ' ' . delta($varNet, false, 'vs N-1') : '')
+                . ($dernierMois ? '<span>à fin ' . format_mois_fr($annee, $dernierMois) . '</span>' : ''),
+      ]) ?>
 </div>
 
-<?php
-$urgentes = array_filter($alertes, fn($a) => in_array($a['alerte'], ['depasse', 'urgent'], true));
-if ($urgentes):
-?>
+<?php if ($urgentes): ?>
   <div class="card border-danger mb-4">
-    <div class="card-header bg-danger text-white">
-      Échéances de contrats à traiter (<?= count($urgentes) ?>)
+    <div class="card-header bg-danger">
+      <span class="d-flex align-items-center gap-2"><?= icon('alert', 16) ?> Échéances de contrats à traiter</span>
+      <span class="badge bg-danger"><?= count($urgentes) ?></span>
     </div>
-    <div class="card-body">
-      <table class="table table-sm mb-0">
+    <div class="card-body p-0">
+      <table class="table">
         <tbody>
           <?php foreach (array_slice($urgentes, 0, 8) as $a): ?>
             <tr>
               <td style="width:28%">
-                <a href="/pages/charges.php?id=<?= (int) $a['project_id'] ?>"
-                   class="text-decoration-none fw-semibold text-dark">
-                  <?= htmlspecialchars($a['project_name']) ?>
-                </a>
+                <a href="/pages/charges.php?id=<?= (int) $a['project_id'] ?>" class="row-link"><?= h($a['project_name']) ?></a>
               </td>
-              <td><?= htmlspecialchars($a['label']) ?></td>
+              <td><?= h($a['label']) ?></td>
               <td class="text-end">
                 <?php if ($a['alerte'] === 'depasse'): ?>
                   <span class="badge bg-danger">Préavis dépassé</span>
                 <?php else: ?>
-                  <span class="badge bg-danger">
-                    Résilier avant le <?= date('d/m/Y', strtotime($a['date_limite_resiliation'])) ?>
-                  </span>
+                  <span class="badge bg-danger">Résilier avant le <?= date('d/m/Y', strtotime($a['date_limite_resiliation'])) ?></span>
                 <?php endif; ?>
               </td>
             </tr>
@@ -102,109 +179,99 @@ if ($urgentes):
         </tbody>
       </table>
       <?php if (count($urgentes) > 8): ?>
-        <div class="text-muted small mt-2">
-          et <?= count($urgentes) - 8 ?> autre(s) échéance(s).
-        </div>
+        <div class="text-muted small px-4 py-2">et <?= count($urgentes) - 8 ?> autre(s) échéance(s).</div>
       <?php endif; ?>
     </div>
   </div>
 <?php endif; ?>
 
-<?php
-$sections = [
-  [
-    'cle'     => 'sci',
-    'titre'   => 'Immobilier locatif',
-    'sigle'   => 'SCI',
-    'couleur' => '#EAF1FB',
-    'texte'   => '#185FA5',
-    'colonnes'=> ['Compte bancaire', "Taux d'occupation"],
-  ],
-  [
-    'cle'     => 'restaurants',
-    'titre'   => 'Restaurants',
-    'sigle'   => '🍴',
-    'couleur' => '#EAF5EE',
-    'texte'   => '#2D6A4F',
-    'colonnes'=> ['Trésorerie', 'CA du mois'],
-  ],
-  [
-    'cle'     => 'mdb',
-    'titre'   => 'Marchands de biens',
-    'sigle'   => 'MDB',
-    'couleur' => '#F8EFE0',
-    'texte'   => '#8A6D1E',
-    'colonnes'=> ['Trésorerie', 'Affaires en cours'],
-  ],
-  [
-    'cle'     => 'autres',
-    'titre'   => 'Autres structures',
-    'sigle'   => '·',
-    'couleur' => '#F0F0EC',
-    'texte'   => '#6B7280',
-    'colonnes'=> ['Trésorerie', ''],
-  ],
-];
-?>
+<?php if ($idsRestos): ?>
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">
+        Chiffre d'affaires des restaurants
+        <span class="card-hint">30 derniers jours · TTC</span>
+      </div>
+      <div class="card-body"><div class="chart-box"><canvas id="chartRestos"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Répartition de la trésorerie</div>
+      <div class="card-body d-flex flex-column">
+        <div class="chart-box sm"><canvas id="chartTreso"></canvas></div>
+        <div class="mt-3 d-grid gap-2" style="font-size:.85rem">
+          <?php foreach ($repartition as $r): ?>
+            <div class="d-flex justify-content-between">
+              <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:8px;background:<?= $r['couleur'] ?>"></i><?= h($r['titre']) ?></span>
+              <span class="fw-semibold num"><?= eur($r['total']) ?></span>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
-<?php foreach ($sections as $s):
-  $liste = $groupes[$s['cle']];
+<?php foreach ($sections as $cle => $s):
+  $liste = $groupes[$cle];
   if (!$liste) continue; // on n'affiche pas une famille vide
 ?>
   <div class="card mb-4">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center gap-2">
-          <span style="display:inline-flex;align-items:center;justify-content:center;
-                       width:34px;height:34px;border-radius:8px;font-weight:bold;font-size:13px;
-                       background:<?= $s['couleur'] ?>;color:<?= $s['texte'] ?>">
-            <?= $s['sigle'] ?>
-          </span>
-          <strong><?= htmlspecialchars($s['titre']) ?></strong>
+    <div class="card-header">
+      <div class="family-head">
+        <span class="family-icon <?= $s['classe'] ?>"><?= icon($s['icone'], 18) ?></span>
+        <div>
+          <div class="family-title"><?= h($s['titre']) ?></div>
+          <div class="family-sub"><?= count($liste) ?> société<?= count($liste) > 1 ? 's' : '' ?></div>
         </div>
-        <span class="text-muted small">
-          <?= count($liste) ?> société<?= count($liste) > 1 ? 's' : '' ?>
-          &middot; <?= number_format(total_solde($liste), 0, ',', ' ') ?> €
-        </span>
       </div>
-
-      <table class="table table-sm mb-0">
+      <div class="family-total">
+        <div class="family-sub">Trésorerie</div>
+        <div class="v"><?= eur(total_solde($liste)) ?></div>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+      <table class="table align-middle">
         <thead>
           <tr>
-            <th style="width:45%">Société</th>
-            <th class="text-end"><?= htmlspecialchars($s['colonnes'][0]) ?></th>
-            <th class="text-end"><?= htmlspecialchars($s['colonnes'][1]) ?></th>
+            <th style="width:34%">Société</th>
+            <th class="text-end">Trésorerie</th>
+            <?php if ($cle === 'restaurants'): ?>
+              <th class="text-end">CA hier</th>
+              <th class="text-end">CA du mois</th>
+              <th class="text-end">vs N-1</th>
+            <?php elseif ($cle === 'sci'): ?>
+              <th class="text-end">Occupation</th>
+            <?php elseif ($cle === 'mdb'): ?>
+              <th class="text-end">Affaires en cours</th>
+            <?php endif; ?>
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($liste as $p): ?>
+          <?php foreach ($liste as $p): $pid = (int) $p['id']; ?>
             <tr>
-              <td>
-                <a href="/pages/project_dashboard.php?id=<?= (int) $p['id'] ?>"
-                   class="text-decoration-none fw-semibold text-dark">
-                  <?= htmlspecialchars($p['name']) ?>
-                </a>
-              </td>
+              <td><a href="/pages/project_dashboard.php?id=<?= $pid ?>" class="row-link"><?= h($p['name']) ?></a></td>
               <td class="text-end"><?= afficher_solde($p) ?></td>
-              <td class="text-end">
-                <?php if ($s['cle'] === 'sci'): ?>
-                  <?= afficher_occupation($p) ?>
-                <?php elseif ($s['cle'] === 'restaurants'): ?>
-                  <?= (float) $p['ca_mois'] > 0
-                        ? number_format((float) $p['ca_mois'], 0, ',', ' ') . ' €'
-                        : '<span class="text-muted">pas de saisie</span>' ?>
-                <?php elseif ($s['cle'] === 'mdb'): ?>
-                  <?= $p['affaires_en_cours'] !== null
-                        ? (int) $p['affaires_en_cours']
-                        : '<span class="text-muted">—</span>' ?>
-                <?php else: ?>
-                  <span class="text-muted">—</span>
-                <?php endif; ?>
-              </td>
+              <?php if ($cle === 'restaurants'): ?>
+                <td class="text-end"><?= isset($caHierParResto[$pid]) ? eur($caHierParResto[$pid]) : '<span class="text-muted">—</span>' ?></td>
+                <td class="text-end fw-semibold">
+                  <?= ($caMoisParResto[$pid] ?? 0) > 0 ? eur($caMoisParResto[$pid]) : '<span class="text-muted fw-normal">pas de saisie</span>' ?>
+                </td>
+                <td class="text-end"><?= isset($caN1ParResto[$pid]) ? delta(ecart_pct($caMoisParResto[$pid] ?? 0, $caN1ParResto[$pid])) : '<span class="text-muted">—</span>' ?></td>
+              <?php elseif ($cle === 'sci'): ?>
+                <td class="text-end"><?= afficher_occupation($p) ?></td>
+              <?php elseif ($cle === 'mdb'): ?>
+                <td class="text-end"><?= $p['affaires_en_cours'] !== null ? (int) $p['affaires_en_cours'] : '<span class="text-muted">—</span>' ?></td>
+              <?php endif; ?>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 <?php endforeach; ?>
@@ -213,6 +280,44 @@ $sections = [
   <div class="alert alert-secondary">
     Aucune société active. <a href="/pages/projects.php">Créer une société</a>.
   </div>
+<?php endif; ?>
+
+<?php if ($idsRestos): ?>
+<script>
+(function () {
+  var c = ADHUB.colors;
+  var noms = <?= json_encode(array_column($groupes['restaurants'], 'name', 'id'), JSON_UNESCAPED_UNICODE) ?>;
+  var series = <?= json_encode($quotidien['series']) ?>;
+  var labels = <?= json_encode($quotidien['labels']) ?>;
+  var palette = ['#0F7B55', '#1F5FAD', '#C8A84B', '#7C5CC4', '#D9673B', '#2BA0B5'];
+  var datasets = Object.keys(series).map(function (id, i) {
+    return { label: noms[id], data: series[id], backgroundColor: palette[i % palette.length], stack: 'ca', maxBarThickness: 22 };
+  });
+  new Chart(document.getElementById('chartRestos'), {
+    type: 'bar',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      plugins: { legend: { position: 'top', align: 'end' },
+                 tooltip: { callbacks: { label: function (x) { return ' ' + x.dataset.label + ' : ' + ADHUB.eur(x.raw); },
+                                         footer: function (items) { return 'Total : ' + ADHUB.eur(items.reduce(function (s, x) { return s + x.raw; }, 0)); } } } },
+      scales: { x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
+                y: { stacked: true, ticks: { callback: function (v) { return ADHUB.eurShort(v); } } } }
+    }
+  });
+  var total = Object.keys(series).length ? labels.map(function (_, i) { return Object.keys(series).reduce(function (s, id) { return s + series[id][i]; }, 0); }) : [];
+  ADHUB.spark('sparkRestos', total, c.green);
+
+  new Chart(document.getElementById('chartTreso'), {
+    type: 'doughnut',
+    data: {
+      labels: <?= json_encode(array_column($repartition, 'titre'), JSON_UNESCAPED_UNICODE) ?>,
+      datasets: [{ data: <?= json_encode(array_map(fn($r) => max(0, $r['total']), $repartition)) ?>,
+                   backgroundColor: <?= json_encode(array_column($repartition, 'couleur')) ?>, borderWidth: 2, borderColor: '#fff', hoverOffset: 4 }]
+    },
+    options: { cutout: '68%', plugins: { legend: { display: false }, tooltip: { mode: 'nearest', callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } } }
+  });
+})();
+</script>
 <?php endif; ?>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>

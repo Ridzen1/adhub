@@ -67,7 +67,7 @@ $pageTitle = 'Utilisateurs';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<h1 class="mb-4">Utilisateurs et accès</h1>
+<?= page_header('Utilisateurs et accès', 'Comptes, rôles et droits par société.', '', 'Administration') ?>
 
 <?php if (isset($_GET['created'])): ?><div class="alert alert-success">Utilisateur créé.</div><?php endif; ?>
 <?php if (isset($_GET['granted'])): ?><div class="alert alert-success">Accès attribué.</div><?php endif; ?>

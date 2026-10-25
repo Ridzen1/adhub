@@ -35,7 +35,7 @@ $pageTitle = 'Mon compte';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<h1 class="mb-4">Mon compte</h1>
+<?= page_header('Mon compte', h(current_user()['name'] ?? '')) ?>
 
 <?php if ($success): ?>
   <div class="alert alert-success">Mot de passe mis à jour.</div>

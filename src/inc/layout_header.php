@@ -5,82 +5,142 @@
  *   require __DIR__ . '/../inc/layout_header.php';
  *
  * Suppose que require_login() a déjà été appelé par la page.
+ * Navigation en haut : vue d'ensemble, sélecteur de société (avec recherche),
+ * administration (direction) et menu du compte.
  */
 require_once __DIR__ . '/access.php';
+require_once __DIR__ . '/ui.php';
 
 $navUser     = current_user();
 $navProjects = get_visible_projects();
 
-// Regroupement par type pour le menu latéral
+// Regroupement par type pour le sélecteur de société
 $navGroups = [];
 foreach ($navProjects as $np) {
     $navGroups[$np['type_label']][] = $np;
 }
 
+$navPage = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
 $currentProjectId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$pagesSociete = ['project_dashboard', 'project_detail', 'project_documents', 'charges', 'saisie_quotidienne',
+                 'evolution', 'analyse_caisse', 'import_caisse'];
+$pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses'];
+$enSociete    = in_array($navPage, $pagesSociete, true) && $currentProjectId > 0;
+
+$nomSocieteCourante = null;
+foreach ($navProjects as $np) {
+    if ((int) $np['id'] === $currentProjectId) {
+        $nomSocieteCourante = $np['name'];
+    }
+}
+
+// Version des fichiers statiques : force le rechargement après une mise à jour
+$assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= htmlspecialchars($pageTitle ?? "AD'HUB") ?></title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body { background: #F4F6F9; }
-    .topbar { background: #0E1C2B; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
-    .brand { color: #C8A84B; font-weight: bold; letter-spacing: 1px; font-size: 18px; text-decoration: none; }
-    .topbar .user { color: #AAB4C4; font-size: 13px; }
-    .topbar .user a { color: #fff; }
-    .layout { display: flex; min-height: calc(100vh - 52px); }
-    .sidebar { width: 250px; background: #fff; border-right: 1px solid #E3E3DE; padding: 18px 0; flex-shrink: 0; }
-    .sidebar .group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6B7280; font-weight: 600; padding: 12px 20px 6px; }
-    .sidebar a.nav-item { display: block; padding: 7px 20px; font-size: 14px; color: #1A1A1A; text-decoration: none; }
-    .sidebar a.nav-item:hover { background: #F4F6F9; }
-    .sidebar a.nav-item.active { background: #EEF2FA; color: #0E1C2B; font-weight: 600; border-left: 3px solid #C8A84B; padding-left: 17px; }
-    .sidebar .top-link { display: block; padding: 8px 20px; font-size: 14px; font-weight: 600; color: #0E1C2B; text-decoration: none; }
-    .sidebar .top-link:hover { background: #F4F6F9; }
-    .main { flex: 1; padding: 26px 32px; }
-    .badge-type { background: #0E1C2B; }
-    .badge-archived { background: #6B7280; }
-  </style>
+  <title><?= h($pageTitle ?? "AD'HUB") ?> · AD'HUB</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23C8A84B'/><text x='16' y='21.5' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%230E1C2B'>AD</text></svg>">
+  <link href="/assets/vendor/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/adhub.css?v=<?= $assetV ?>" rel="stylesheet">
+  <script src="/assets/vendor/chart.umd.min.js"></script>
+  <script src="/assets/adhub.js?v=<?= $assetV ?>"></script>
 </head>
 <body>
 
-<div class="topbar">
-  <a class="brand" href="/pages/accueil.php">AD'HUB</a>
-  <div class="user">
-    <?= htmlspecialchars($navUser['name'] ?? '') ?>
-    &middot; <a href="/pages/mon_compte.php">Mon compte</a>
-    &middot; <a href="/pages/logout.php">Déconnexion</a>
-  </div>
-</div>
+<header class="ad-topbar" id="adTopbar">
+  <div class="ad-topbar-inner">
+    <a class="ad-brand" href="/pages/accueil.php">
+      <span class="ad-brand-mark">AD</span>
+      <span class="ad-brand-name">AD<span>'</span>HUB</span>
+    </a>
 
-<div class="layout">
-  <div class="sidebar">
-    <?php if (is_direction()): ?>
-      <a class="top-link" href="/pages/vue_globale.php">Vue globale</a>
-      <a class="top-link" href="/pages/projects.php">Gérer les sociétés</a>
-      <a class="top-link" href="/pages/admin_users.php">Utilisateurs</a>
-      <a class="top-link" href="/pages/admin_logs.php">Journal des accès</a>
-      <a class="top-link" href="/pages/admin_caisses.php">Caisses</a>
-    <?php else: ?>
-      <a class="top-link" href="/pages/accueil.php">Mes sociétés</a>
-    <?php endif; ?>
+    <button class="ad-menu-toggle" type="button" aria-label="Menu" onclick="document.getElementById('adTopbar').classList.toggle('open')">
+      <?= icon('menu', 22) ?>
+    </button>
 
-    <?php foreach ($navGroups as $groupLabel => $groupProjects): ?>
-      <div class="group-label"><?= htmlspecialchars($groupLabel) ?></div>
-      <?php foreach ($groupProjects as $gp): ?>
-        <a class="nav-item <?= $currentProjectId === (int) $gp['id'] ? 'active' : '' ?>"
-           href="/pages/project_dashboard.php?id=<?= (int) $gp['id'] ?>">
-          <?= htmlspecialchars($gp['name']) ?>
+    <nav class="ad-nav">
+      <?php if (is_direction()): ?>
+        <a href="/pages/vue_globale.php" class="<?= $navPage === 'vue_globale' ? 'active' : '' ?>">
+          <?= icon('grid', 16) ?> Vue d'ensemble
         </a>
-      <?php endforeach; ?>
-    <?php endforeach; ?>
+      <?php else: ?>
+        <a href="/pages/accueil.php" class="<?= $navPage === 'accueil' ? 'active' : '' ?>">
+          <?= icon('grid', 16) ?> Mes sociétés
+        </a>
+      <?php endif; ?>
 
-    <?php if (!$navGroups): ?>
-      <div class="group-label">Aucune société accessible</div>
-    <?php endif; ?>
+      <div class="dropdown">
+        <button type="button" class="<?= $enSociete ? 'active' : '' ?>" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+          <?= icon('building', 16) ?>
+          <?= $enSociete && $nomSocieteCourante ? h($nomSocieteCourante) : 'Sociétés' ?>
+          <span class="ad-caret"><?= icon('chevron', 14) ?></span>
+        </button>
+        <div class="dropdown-menu ad-companies-menu">
+          <div class="ad-companies-search">
+            <input type="search" class="form-control" placeholder="Rechercher une société…" data-company-search autocomplete="off">
+          </div>
+          <div class="ad-companies-grid">
+            <?php foreach ($navGroups as $groupLabel => $groupProjects): ?>
+              <div class="ad-companies-group" data-company-group>
+                <div class="dropdown-header">
+                  <span class="type-chip <?= type_famille($groupProjects[0]['type_code'] ?? null) ?>" style="padding:0;background:none"><span class="type-dot"></span></span>
+                  <?= h($groupLabel) ?>
+                </div>
+                <?php foreach ($groupProjects as $gp): ?>
+                  <a class="dropdown-item <?= $currentProjectId === (int) $gp['id'] && $enSociete ? 'current' : '' ?>"
+                     data-company-name="<?= h(mb_strtolower($gp['name'])) ?>"
+                     href="<?= lien_societe((int) $gp['id']) ?>">
+                    <span><?= h($gp['name']) ?></span>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            <?php endforeach; ?>
+            <?php if (!$navGroups): ?>
+              <div class="text-muted p-3">Aucune société accessible</div>
+            <?php endif; ?>
+          </div>
+          <div class="ad-companies-empty" data-company-empty>Aucune société ne correspond.</div>
+        </div>
+      </div>
+
+      <?php if (is_direction()): ?>
+        <div class="dropdown">
+          <button type="button" class="<?= in_array($navPage, $pagesAdmin, true) ? 'active' : '' ?>" data-bs-toggle="dropdown" aria-expanded="false">
+            <?= icon('settings', 16) ?> Administration
+            <span class="ad-caret"><?= icon('chevron', 14) ?></span>
+          </button>
+          <div class="dropdown-menu">
+            <a class="dropdown-item <?= $navPage === 'projects' ? 'active' : '' ?>" href="/pages/projects.php">Gérer les sociétés</a>
+            <a class="dropdown-item <?= $navPage === 'admin_users' ? 'active' : '' ?>" href="/pages/admin_users.php">Utilisateurs et accès</a>
+            <a class="dropdown-item <?= $navPage === 'admin_caisses' ? 'active' : '' ?>" href="/pages/admin_caisses.php">Caisses</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item <?= $navPage === 'admin_logs' ? 'active' : '' ?>" href="/pages/admin_logs.php">Journal des accès</a>
+          </div>
+        </div>
+      <?php endif; ?>
+    </nav>
+
+    <div class="ad-user dropdown">
+      <button type="button" class="ad-user-btn" data-bs-toggle="dropdown" aria-expanded="false">
+        <span class="ad-avatar"><?= h(initiales($navUser['name'] ?? '')) ?></span>
+        <span class="d-none d-xl-inline"><?= h($navUser['name'] ?? '') ?></span>
+        <span class="ad-caret"><?= icon('chevron', 14) ?></span>
+      </button>
+      <div class="dropdown-menu dropdown-menu-end">
+        <div class="px-2 py-1">
+          <div class="fw-semibold"><?= h($navUser['name'] ?? '') ?></div>
+          <div class="text-muted small"><?= is_direction() ? 'Direction' : 'Accès société' ?></div>
+        </div>
+        <div class="dropdown-divider"></div>
+        <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/mon_compte.php"><?= icon('key', 15) ?> Mon compte</a>
+        <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/logout.php"><?= icon('logout', 15) ?> Déconnexion</a>
+      </div>
+    </div>
   </div>
+</header>
 
-  <div class="main">
+<main class="ad-main">

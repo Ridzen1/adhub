@@ -32,8 +32,7 @@ $pageTitle = 'Caisses';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<h1 class="mb-1">Caisses</h1>
-<p class="text-muted mb-4">Synchronisation nocturne de L'Addition et Popina.</p>
+<?= page_header('Caisses', "Synchronisation nocturne de L'Addition et Popina.", '', 'Administration') ?>
 
 <?php if (isset($_GET['saved'])): ?>
   <div class="alert alert-success">
