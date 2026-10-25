@@ -2,3 +2,5 @@
 # Identifiants de production — ne jamais versionner
 src/config/config.local.php
 /data/
+# Clés API de la synchronisation — ne jamais versionner
+src/config/sync.local.php

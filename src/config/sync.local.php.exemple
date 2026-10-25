@@ -1,0 +1,38 @@
+<?php
+
+/**
+ * MODÈLE DE CONFIGURATION DE LA SYNCHRONISATION — À COPIER EN sync.local.php.
+ *
+ * Contient les clés API : ne jamais versionner ni envoyer ce fichier.
+ * project_id = l'id de la société dans la table `projects` (visible dans l'URL
+ * de son dashboard : project_dashboard.php?id=12).
+ *
+ * Supprimer un bloc (ou le laisser vide) désactive la source correspondante.
+ */
+
+return [
+    // Clé API demandée au support Popina, une par établissement
+    'popina' => [
+        'base_url' => 'https://api.pragma-project.dev',
+        'diviseur_montants' => 100, // montants Popina en centimes
+        'etablissements' => [
+            // ['project_id' => 12, 'api_key' => 'A_REMPLACER'], // LE BELLEVUE
+        ],
+    ],
+
+    // Jeton API Pennylane en lecture seule (Paramètres > Connectivité > Développeurs).
+    // Un jeton par société, ou un jeton cabinet + company_id.
+    'pennylane' => [
+        'societes' => [
+            // ['project_id' => 3, 'token' => 'A_REMPLACER', 'company_id' => null], // SCI HOTEL DIEU
+        ],
+    ],
+
+    // Clé générée dans l'espace Partenaires de L'Addition, routes à fournir par L'Addition
+    'laddition' => [
+        'base_url' => '',
+        'etablissements' => [
+            // ['project_id' => 14, 'api_key' => 'A_REMPLACER'],
+        ],
+    ],
+];
