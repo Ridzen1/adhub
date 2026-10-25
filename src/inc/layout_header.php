@@ -136,7 +136,8 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
           <div class="text-muted small"><?= is_direction() ? 'Direction' : 'Accès société' ?></div>
         </div>
         <div class="dropdown-divider"></div>
-        <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/mon_compte.php"><?= icon('key', 15) ?> Mon compte</a>
+        <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/mon_compte.php"><?= icon('users', 15) ?> Mon compte</a>
+        <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/double_authentification.php"><?= icon('key', 15) ?> Double authentification</a>
         <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/logout.php"><?= icon('logout', 15) ?> Déconnexion</a>
       </div>
     </div>
@@ -144,3 +145,9 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 </header>
 
 <main class="ad-main">
+<?php if (isset($_SESSION['flash_secours'])): $restantsSecours = (int) $_SESSION['flash_secours']; unset($_SESSION['flash_secours']); ?>
+  <div class="alert alert-warning">
+    Vous vous êtes connecté avec un code de secours. Il vous en reste <strong><?= $restantsSecours ?></strong>.
+    Si vous avez perdu votre téléphone, <a href="/pages/double_authentification.php">changez d'appareil</a> dès que possible.
+  </div>
+<?php endif; ?>

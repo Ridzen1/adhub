@@ -25,7 +25,11 @@ function start_session_once(): void
     }
 }
 
-function attempt_login(string $email, string $password): bool
+/**
+ * Vérifie l'e-mail et le mot de passe. Retourne l'utilisateur (avec role_code) ou null.
+ * N'ouvre PAS la session : si la double authentification est active, il reste un code à demander.
+ */
+function verifier_identifiants(string $email, string $password): ?array
 {
     $pdo = get_db();
     $stmt = $pdo->prepare(
@@ -38,15 +42,34 @@ function attempt_login(string $email, string $password): bool
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
-        return false;
+        return null;
     }
+    return $user;
+}
 
+/** Ouvre la session d'un utilisateur dont l'identité est entièrement vérifiée */
+function ouvrir_session(array $user): void
+{
     start_session_once();
     session_regenerate_id(true); // évite la fixation de session
-    $_SESSION['user_id']   = (int) $user['id'];
-    $_SESSION['user_name'] = $user['name'];
-    $_SESSION['role_code'] = $user['role_code'];
+    unset($_SESSION['auth_attente']);
+    $_SESSION['user_id']      = (int) $user['id'];
+    $_SESSION['user_name']    = $user['name'];
+    $_SESSION['role_code']    = $user['role_code'];
+    $_SESSION['totp_enabled'] = !empty($user['totp_enabled']);
+}
 
+/**
+ * Connexion par mot de passe seul. Retourne false si les identifiants sont faux
+ * ou si un code de double authentification est encore nécessaire.
+ */
+function attempt_login(string $email, string $password): bool
+{
+    $user = verifier_identifiants($email, $password);
+    if ($user === null || !empty($user['totp_enabled'])) {
+        return false;
+    }
+    ouvrir_session($user);
     return true;
 }
 
@@ -88,6 +111,17 @@ function require_login(): void
 {
     if (!is_logged_in()) {
         header('Location: /pages/login.php');
+        exit;
+    }
+
+    // Double authentification obligatoire pour certains rôles : tant qu'elle n'est pas
+    // activée, l'utilisateur ne peut qu'aller l'activer (ou se déconnecter).
+    require_once __DIR__ . '/double_auth.php';
+    $page = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    if (empty($_SESSION['totp_enabled'])
+        && double_auth_est_obligatoire($_SESSION['role_code'] ?? null)
+        && !in_array($page, ['double_authentification.php', 'logout.php'], true)) {
+        header('Location: /pages/double_authentification.php?obligatoire=1');
         exit;
     }
 }

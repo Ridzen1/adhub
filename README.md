@@ -142,6 +142,24 @@ Les sociétés relevées dans Pennylane sont insérées automatiquement (sans do
 
 Les soldes et taux d'occupation insérés sont des **valeurs de démonstration**, à remplacer par les vrais chiffres.
 
+## Double authentification (2FA)
+
+Migration `012_double_authentification.sql`. Code à 6 chiffres d'une application d'authentification
+(Google Authenticator, Microsoft Authenticator, 1Password, Bitwarden…), demandé après le mot de passe.
+
+- **Activation** : menu du compte → *Double authentification* : QR code (dessiné dans le navigateur,
+  le secret ne sort pas d'ADHUB) ou clé à saisir, puis confirmation par un premier code.
+  10 **codes de secours** à usage unique sont alors affichés une seule fois (copier, télécharger, imprimer).
+- **Obligatoire pour la direction** (`TOTP_ROLES_OBLIGATOIRES` dans `src/inc/double_auth.php`) :
+  à sa prochaine connexion, un compte direction sans 2FA est conduit à l'activation et ne peut rien
+  ouvrir d'autre avant. Facultative pour les autres rôles.
+- **Sécurité** : un code ne sert qu'une fois (anti-rejeu), tolérance de ± 30 s, 5 essais par connexion,
+  blocage de 15 min après 8 codes faux, seule une empreinte des codes de secours est stockée.
+- **Téléphone perdu** : se connecter avec un code de secours, puis *Changer de téléphone*. Sans code
+  de secours : un autre compte direction clique *Réinitialiser la 2FA* dans *Utilisateurs et accès*.
+  En dernier recours (seul compte direction) : `UPDATE users SET totp_enabled = 0 WHERE email = '…';` via Adminer/phpMyAdmin.
+- L'heure du serveur doit être juste (c'est le cas sur o2switch) : les codes dépendent de l'heure.
+
 ## Charges fixes et dates anniversaires
 
 `008_charges_fixes.sql` ajoute le suivi des charges récurrentes, accessible via le bouton
