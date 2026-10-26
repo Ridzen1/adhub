@@ -408,5 +408,12 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
             @unlink($jar);
         }
     }
+    // Le suivi mensuel du tableau de bord reprend le CA des caisses
+    try {
+        require_once __DIR__ . '/../../inc/pennylane.php';
+        plog('Suivi mensuel : ' . pennylane_alimenter_suivi_mensuel() . ' mois mis à jour');
+    } catch (Throwable $e) {
+        plog('Suivi mensuel non mis à jour : ' . $e->getMessage());
+    }
     exit($exit);
 }

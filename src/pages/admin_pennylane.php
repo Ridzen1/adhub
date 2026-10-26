@@ -42,6 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ((array) ($_POST['projet'] ?? []) as $societe => $projectId) {
             pennylane_definir_correspondance((string) $societe, (int) $projectId ?: null);
         }
+        pennylane_alimenter_suivi_mensuel();
+        pennylane_maj_tresorerie();
         header('Location: /pages/admin_pennylane.php?enregistre=1');
         exit;
     }

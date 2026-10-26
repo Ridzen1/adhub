@@ -98,6 +98,8 @@ function update_project(int $id, string $name, int $projectTypeId, ?string $sire
             description = :description,
             solde_bancaire = :solde,
             solde_maj_le = :solde_maj,
+            solde_reference = :solde_ref,
+            solde_reference_le = :solde_ref_le,
             lots_total = :lots_total,
             lots_loues = :lots_loues,
             affaires_en_cours = :affaires
@@ -115,6 +117,9 @@ function update_project(int $id, string $name, int $projectTypeId, ?string $sire
         'description'     => $details['description'] ?? null,
         'solde'           => $details['solde_bancaire'] ?? null,
         'solde_maj'       => $details['solde_maj_le'] ?? null,
+        // Le solde saisi sert de point de départ au calcul de trésorerie (pennylane_maj_tresorerie)
+        'solde_ref'       => $details['solde_bancaire'] ?? null,
+        'solde_ref_le'    => $details['solde_maj_le'] ?? null,
         'lots_total'      => $details['lots_total'] ?? null,
         'lots_loues'      => $details['lots_loues'] ?? null,
         'affaires'        => $details['affaires_en_cours'] ?? null,
