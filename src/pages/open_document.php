@@ -10,6 +10,21 @@ require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/documents.php';
 require_login();
 
+// Dossier OneDrive de la société entière (champ « Lien vers les documents » de la fiche)
+if (isset($_GET['project_id'])) {
+    require_once __DIR__ . '/../inc/projects.php';
+    $projectId = (int) $_GET['project_id'];
+    require_project_access($projectId, 'documents');
+    $project = get_project($projectId);
+    if (!$project || empty($project['documents_url'])) {
+        http_response_code(404);
+        echo "Aucun dossier OneDrive n'est associé à cette société.";
+        exit;
+    }
+    header('Location: ' . $project['documents_url']);
+    exit;
+}
+
 $categoryId = (int) ($_GET['category_id'] ?? 0);
 $category   = get_category($categoryId);
 

@@ -22,6 +22,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_project_edit($id);
     $action = $_POST['action'] ?? '';
 
+    if ($action === 'dossier_societe') {
+        $url = trim($_POST['documents_url'] ?? '') ?: null;
+        if ($url !== null && !filter_var($url, FILTER_VALIDATE_URL)) {
+            $errors[] = "Le lien OneDrive n'est pas une URL valide.";
+        } else {
+            get_db()->prepare("UPDATE projects SET documents_url = :u WHERE id = :id")
+                ->execute(['u' => $url, 'id' => $id]);
+            header("Location: /pages/project_documents.php?id={$id}&dossier=1");
+            exit;
+        }
+    }
+
     if ($action === 'create_category') {
         $label = trim($_POST['label'] ?? '');
         $url   = trim($_POST['onedrive_url'] ?? '') ?: null;
@@ -74,6 +86,36 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-success">Catégorie mise à jour.</div><?php endif; ?>
 <?php if (isset($_GET['deleted'])): ?><div class="alert alert-secondary">Catégorie supprimée.</div><?php endif; ?>
 <?php foreach ($errors as $e): ?><div class="alert alert-danger"><?= htmlspecialchars($e) ?></div><?php endforeach; ?>
+
+<?php if (isset($_GET['dossier'])): ?><div class="alert alert-success">Dossier OneDrive enregistré.</div><?php endif; ?>
+
+<div class="card mb-4">
+  <div class="card-body d-flex flex-wrap gap-3 align-items-center justify-content-between">
+    <div>
+      <h6 class="mb-1">Dossier OneDrive de la société</h6>
+      <div class="text-muted small">Un seul lien pour tous les documents : les sous-dossiers (Juridique, Compta…) s'ouvrent dans OneDrive.
+        Les catégories ci-dessous sont facultatives.</div>
+    </div>
+    <?php if (!empty($project['documents_url'])): ?>
+      <a href="/pages/open_document.php?project_id=<?= $id ?>" target="_blank" rel="noopener" class="btn btn-dark">
+        Ouvrir le dossier &rarr;
+      </a>
+    <?php else: ?>
+      <span class="text-muted small">Lien non renseigné</span>
+    <?php endif; ?>
+  </div>
+  <?php if ($canEdit): ?>
+    <div class="card-footer bg-transparent">
+      <form method="post" class="d-flex flex-wrap gap-2">
+        <input type="hidden" name="action" value="dossier_societe">
+        <input type="url" name="documents_url" class="form-control form-control-sm" style="flex:1 1 320px"
+               placeholder="Collez le lien de partage du dossier OneDrive"
+               value="<?= htmlspecialchars($project['documents_url'] ?? '') ?>">
+        <button type="submit" class="btn btn-sm btn-outline-dark">Enregistrer</button>
+      </form>
+    </div>
+  <?php endif; ?>
+</div>
 
 <div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
   <?php foreach ($categories as $c): ?>
