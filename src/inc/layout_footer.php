@@ -1,5 +1,5 @@
 </main>
-<footer class="ad-footer">
+<footer class="hub-footer">
   <span>AD'HUB · AD Holding</span>
   <span><?= date('d/m/Y') ?></span>
 </footer>
