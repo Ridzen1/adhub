@@ -238,6 +238,20 @@ Un export par mois, vers le 10, suffit à garder des chiffres fiables.</p>
 HTML,
     ],
     [
+        'id' => 'admin-tresorerie', 'icon' => 'bank', 'pour' => 'direction',
+        'titre' => "Administration : trésorerie",
+        'html' => <<<HTML
+<p>Menu <a href="/pages/admin_tresorerie.php">Administration → Trésorerie</a>.</p>
+<ol class="guide-steps">
+  <li>Une seule fois par société : saisissez son solde bancaire réel à une date (écran Trésorerie de Pennylane
+      ou relevé de fin de mois ; plusieurs comptes s'additionnent).</li>
+  <li>Ensuite, chaque import Pennylane ajoute les opérations bancaires postérieures : la trésorerie de la
+      vue d'ensemble et du tableau de bord se met à jour sans autre saisie.</li>
+  <li>Si un écart apparaît un jour avec la banque, ressaisissez simplement le solde du jour.</li>
+</ol>
+HTML,
+    ],
+    [
         'id' => 'admin-autres', 'icon' => 'settings', 'pour' => 'direction',
         'titre' => "Administration : sociétés et journal",
         'html' => <<<HTML

@@ -60,6 +60,7 @@ function total_solde(array $liste): float
 // --- Indicateurs consolidés -------------------------------------------------
 $totalGeneral = total_solde($projects);
 $nbPerimes    = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !== null && solde_est_perime($p['solde_maj_le'])));
+$nbSansSolde  = count(array_filter($projects, fn($p) => $p['solde_bancaire'] === null));
 $nbNegatifs   = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !== null && (float) $p['solde_bancaire'] < 0));
 
 $idsRestos = array_map(fn($p) => (int) $p['id'], $groupes['restaurants']);
@@ -142,7 +143,8 @@ require __DIR__ . '/../inc/layout_header.php';
         'hero' => true, 'icon' => 'bank',
         'foot' => '<span>' . count($projects) . ' sociétés</span>'
                 . ($nbNegatifs ? '<span style="color:#FCA5A5">' . $nbNegatifs . ' à découvert</span>' : '')
-                . ($nbPerimes ? '<span>' . $nbPerimes . ' solde' . ($nbPerimes > 1 ? 's' : '') . ' ancien' . ($nbPerimes > 1 ? 's' : '') . '</span>' : ''),
+                . ($nbPerimes ? '<span>' . $nbPerimes . ' solde' . ($nbPerimes > 1 ? 's' : '') . ' ancien' . ($nbPerimes > 1 ? 's' : '') . '</span>' : '')
+                . ($nbSansSolde && is_direction() ? '<a href="/pages/admin_tresorerie.php" style="color:inherit">' . $nbSansSolde . ' sans solde</a>' : ''),
       ]) ?>
   <?= kpi('CA restaurants · ' . $moisLabel, eur($moisResto['actuel']['ca']), [
         'icon' => 'utensils',
