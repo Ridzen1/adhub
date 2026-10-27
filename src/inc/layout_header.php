@@ -123,6 +123,10 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
           </div>
         </div>
       <?php endif; ?>
+
+      <a href="/pages/guide.php" class="<?= $navPage === 'guide' ? 'active' : '' ?>">
+        <?= icon('file', 16) ?> Guide
+      </a>
     </nav>
 
     <div class="ad-user dropdown">
