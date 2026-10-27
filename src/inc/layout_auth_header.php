@@ -17,9 +17,9 @@ require_once __DIR__ . '/ui.php';
 <body>
   <div class="login-wrap">
     <aside class="login-aside">
-      <div class="ad-brand">
-        <span class="ad-brand-mark">AD</span>
-        <span class="ad-brand-name">AD<span>'</span>HUB</span>
+      <div class="hub-brand">
+        <span class="hub-brand-mark">AD</span>
+        <span class="hub-brand-name">AD<span>'</span>HUB</span>
       </div>
       <div style="position:relative;z-index:1">
         <h2>Le pilotage de toutes vos sociétés, au même endroit.</h2>
@@ -35,7 +35,7 @@ require_once __DIR__ . '/ui.php';
 
     <div class="login-panel">
       <div class="login-box">
-        <div class="ad-brand login-brand-mobile">
-          <span class="ad-brand-mark">AD</span>
-          <span class="ad-brand-name">AD<span>'</span>HUB</span>
+        <div class="hub-brand login-brand-mobile">
+          <span class="hub-brand-mark">AD</span>
+          <span class="hub-brand-name">AD<span>'</span>HUB</span>
         </div>

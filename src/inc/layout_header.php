@@ -51,18 +51,18 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 </head>
 <body>
 
-<header class="ad-topbar" id="adTopbar">
-  <div class="ad-topbar-inner">
-    <a class="ad-brand" href="/pages/accueil.php">
-      <span class="ad-brand-mark">AD</span>
-      <span class="ad-brand-name">AD<span>'</span>HUB</span>
+<header class="hub-topbar" id="hubTopbar">
+  <div class="hub-topbar-inner">
+    <a class="hub-brand" href="/pages/accueil.php">
+      <span class="hub-brand-mark">AD</span>
+      <span class="hub-brand-name">AD<span>'</span>HUB</span>
     </a>
 
-    <button class="ad-menu-toggle" type="button" aria-label="Menu" onclick="document.getElementById('adTopbar').classList.toggle('open')">
+    <button class="hub-menu-toggle" type="button" aria-label="Menu" onclick="document.getElementById('hubTopbar').classList.toggle('open')">
       <?= icon('menu', 22) ?>
     </button>
 
-    <nav class="ad-nav">
+    <nav class="hub-nav">
       <?php if (is_direction()): ?>
         <a href="/pages/vue_globale.php" class="<?= $navPage === 'vue_globale' ? 'active' : '' ?>">
           <?= icon('grid', 16) ?> Vue d'ensemble
@@ -77,15 +77,15 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
         <button type="button" class="<?= $enSociete ? 'active' : '' ?>" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
           <?= icon('building', 16) ?>
           <?= $enSociete && $nomSocieteCourante ? h($nomSocieteCourante) : 'Sociétés' ?>
-          <span class="ad-caret"><?= icon('chevron', 14) ?></span>
+          <span class="hub-caret"><?= icon('chevron', 14) ?></span>
         </button>
-        <div class="dropdown-menu ad-companies-menu">
-          <div class="ad-companies-search">
+        <div class="dropdown-menu hub-companies-menu">
+          <div class="hub-companies-search">
             <input type="search" class="form-control" placeholder="Rechercher une société…" data-company-search autocomplete="off">
           </div>
-          <div class="ad-companies-grid">
+          <div class="hub-companies-grid">
             <?php foreach ($navGroups as $groupLabel => $groupProjects): ?>
-              <div class="ad-companies-group" data-company-group>
+              <div class="hub-companies-group" data-company-group>
                 <div class="dropdown-header">
                   <span class="type-chip <?= type_famille($groupProjects[0]['type_code'] ?? null) ?>" style="padding:0;background:none"><span class="type-dot"></span></span>
                   <?= h($groupLabel) ?>
@@ -103,7 +103,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
               <div class="text-muted p-3">Aucune société accessible</div>
             <?php endif; ?>
           </div>
-          <div class="ad-companies-empty" data-company-empty>Aucune société ne correspond.</div>
+          <div class="hub-companies-empty" data-company-empty>Aucune société ne correspond.</div>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
         <div class="dropdown">
           <button type="button" class="<?= in_array($navPage, $pagesAdmin, true) ? 'active' : '' ?>" data-bs-toggle="dropdown" aria-expanded="false">
             <?= icon('settings', 16) ?> Administration
-            <span class="ad-caret"><?= icon('chevron', 14) ?></span>
+            <span class="hub-caret"><?= icon('chevron', 14) ?></span>
           </button>
           <div class="dropdown-menu">
             <a class="dropdown-item <?= $navPage === 'projects' ? 'active' : '' ?>" href="/pages/projects.php">Gérer les sociétés</a>
@@ -129,11 +129,11 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
       </a>
     </nav>
 
-    <div class="ad-user dropdown">
-      <button type="button" class="ad-user-btn" data-bs-toggle="dropdown" aria-expanded="false">
-        <span class="ad-avatar"><?= h(initiales($navUser['name'] ?? '')) ?></span>
+    <div class="hub-user dropdown">
+      <button type="button" class="hub-user-btn" data-bs-toggle="dropdown" aria-expanded="false">
+        <span class="hub-avatar"><?= h(initiales($navUser['name'] ?? '')) ?></span>
         <span class="d-none d-xl-inline"><?= h($navUser['name'] ?? '') ?></span>
-        <span class="ad-caret"><?= icon('chevron', 14) ?></span>
+        <span class="hub-caret"><?= icon('chevron', 14) ?></span>
       </button>
       <div class="dropdown-menu dropdown-menu-end">
         <div class="px-2 py-1">
@@ -149,7 +149,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
   </div>
 </header>
 
-<main class="ad-main">
+<main class="hub-main">
 <?php if (isset($_SESSION['flash_secours'])): $restantsSecours = (int) $_SESSION['flash_secours']; unset($_SESSION['flash_secours']); ?>
   <div class="alert alert-warning">
     Vous vous êtes connecté avec un code de secours. Il vous en reste <strong><?= $restantsSecours ?></strong>.
