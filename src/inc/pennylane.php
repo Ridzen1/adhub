@@ -626,3 +626,42 @@ function pennylane_maj_tresorerie(): int
     }
     return $n;
 }
+
+/**
+ * Point de départ de la trésorerie, pour toutes les sociétés actives : solde de référence,
+ * solde affiché, et opérations Pennylane reçues depuis la date de référence.
+ */
+function pennylane_soldes_depart(): array
+{
+    $projets = get_db()->query(
+        "SELECT p.id, p.name, p.solde_bancaire, p.solde_maj_le, p.solde_reference, p.solde_reference_le,
+                (SELECT COUNT(*) FROM pennylane_societes ps WHERE ps.project_id = p.id) AS nb_liens
+         FROM projects p WHERE p.status = 'active' ORDER BY p.name"
+    )->fetchAll();
+    foreach ($projets as &$p) {
+        $p['nb_operations'] = 0;
+        $p['derniere_operation'] = null;
+        $noms = pennylane_noms_projet((int) $p['id']);
+        if (!$noms) {
+            continue;
+        }
+        [$in, $params] = pl_in($noms);
+        $params['depuis'] = $p['solde_reference_le'] ?? '1900-01-01';
+        $r = pl_requete(
+            "SELECT COUNT(*) AS nb, MAX(date_operation) AS derniere
+             FROM pennylane_transactions WHERE societe IN ($in) AND date_operation > :depuis", $params
+        )[0];
+        $p['nb_operations'] = (int) $r['nb'];
+        $p['derniere_operation'] = $r['derniere'];
+    }
+    return $projets;
+}
+
+/** Enregistre le solde bancaire réel d'une société au soir de la date $le */
+function pennylane_definir_solde_depart(int $projectId, float $solde, string $le): void
+{
+    get_db()->prepare(
+        "UPDATE projects SET solde_reference = :s, solde_reference_le = :d,
+                solde_bancaire = :s2, solde_maj_le = :d2 WHERE id = :p"
+    )->execute(['s' => $solde, 'd' => $le, 's2' => $solde, 'd2' => $le, 'p' => $projectId]);
+}
