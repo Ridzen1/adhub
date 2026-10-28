@@ -51,7 +51,7 @@ HTML,
   <li><strong>Sociétés</strong> : la liste de vos sociétés, classées par pôle, avec une recherche.
       Tapez quelques lettres du nom pour la retrouver.</li>
   <li>Une fois dans une société, les <strong>onglets</strong> sous son nom donnent accès à ses pages :
-      Tableau de bord, Analyse des ventes, Évolution, Charges fixes, Comptabilité, Documents, Fiche société.
+      Tableau de bord, Analyse des ventes, Évolution, Objectifs, Charges fixes, Comptabilité, Documents, Fiche société.
       Seuls les onglets auxquels vous avez droit apparaissent.</li>
   <li>Sur téléphone, le menu s'ouvre avec le bouton ☰ en haut à droite.</li>
 </ul>
@@ -71,7 +71,7 @@ HTML,
 <p>Juste en dessous, un cadre rouge liste les <strong>échéances de contrats à traiter</strong> dans
 toutes les sociétés.</p>
 <p>Viennent ensuite les <strong>restaurants, chacun dans son propre cadre</strong> : CA d'hier, CA du mois
-et ses 30 derniers jours en graphique. Leurs chiffres ne sont jamais additionnés ni mis dans un même
+ses 30 derniers jours en graphique et la jauge de son objectif du mois. Leurs chiffres ne sont jamais additionnés ni mis dans un même
 graphique : chaque restaurant a son concept et ses services, il n'est comparé qu'à lui-même l'année
 précédente. Chaque graphique a sa propre échelle, la hauteur des barres ne se compare donc pas d'un
 restaurant à l'autre.</p>
@@ -83,7 +83,7 @@ HTML,
         'titre' => "Le tableau de bord d'une société",
         'html' => <<<HTML
 <p>Pour un <strong>restaurant</strong>, la partie <em>Activité</em> montre le CA d'hier, de la semaine
-et du mois (avec une projection en fin de mois), les couverts, le panier moyen et la part
+et du mois (avec une projection en fin de mois), l'objectif du mois s'il a été fixé, les couverts, le panier moyen et la part
 solide / liquide. Le graphique compare chaque jour au même jour de l'année précédente.</p>
 <p>Pour toutes les sociétés, le <em>Suivi mensuel</em> donne le résultat net du dernier mois, le cumul
 de l'année, les revenus et les charges, et pour l'immobilier le nombre de lots loués.</p>
@@ -120,6 +120,44 @@ HTML,
       le 10 du mois, on compare 10 jours à 10 jours.</li>
   <li>S'il n'y a pas de chiffres l'an dernier, aucune comparaison n'est affichée.</li>
 </ul>
+HTML,
+    ],
+    [
+        'id' => 'objectifs', 'icon' => 'target', 'pour' => 'tous',
+        'titre' => "Restaurants : objectifs du mois",
+        'html' => <<<HTML
+<p>La direction fixe pour chaque restaurant un <strong>objectif de chiffre d'affaires TTC par mois</strong>.
+Les équipes n'ont rien à saisir : la progression se met à jour toute seule avec les ventes de la caisse.</p>
+<ul>
+  <li>Une <strong>jauge</strong> montre où en est le mois, sur le tableau de bord du restaurant et dans
+      l'onglet <strong>Objectifs</strong>, avec ce qu'il reste à faire par jour jusqu'à la fin du mois.</li>
+  <li>Des <strong>paliers</strong> marquent le chemin : mi-parcours (50 %), dernière ligne droite (75 %),
+      objectif atteint (100 %) et objectif pulvérisé (120 %). À chaque palier franchi, un petit message
+      s'affiche ; à 100 %, des confettis sont lancés. L'animation ne se joue qu'une fois par palier ;
+      cliquez sur le badge doré pour la revoir.</li>
+  <li>La <strong>flamme</strong> indique le nombre de mois d'affilée où l'objectif a été atteint.</li>
+  <li>L'onglet Objectifs donne le bilan de l'année, mois par mois.</li>
+</ul>
+<p class="guide-note">Chaque restaurant n'est comparé qu'à son propre objectif : il n'y a ni classement
+ni comparaison entre restaurants. Si votre système demande de réduire les animations, les confettis
+ne s'affichent pas.</p>
+HTML,
+    ],
+    [
+        'id' => 'objectifs-fixer', 'icon' => 'flag', 'pour' => 'direction',
+        'titre' => "Fixer les objectifs des restaurants",
+        'html' => <<<HTML
+<ol class="guide-steps">
+  <li>Ouvrez le restaurant, onglet <strong>Objectifs</strong>, cadre <em>Fixer les objectifs</em>
+      (ou le lien <em>en fixer un</em> sur la vue d'ensemble).</li>
+  <li>Choisissez l'année avec les boutons au-dessus du bilan.</li>
+  <li>Tapez le CA TTC visé pour chaque mois. Le CA du même mois l'an dernier est donné comme repère ;
+      le bouton <em>Remplir</em> propose ce chiffre augmenté du pourcentage choisi (5 % par défaut),
+      arrondi à la centaine, dans les cases encore vides.</li>
+  <li>Enregistrez. Une case vidée supprime l'objectif du mois.</li>
+</ol>
+<p class="guide-note">Seule la direction peut fixer ou modifier un objectif. Les équipes qui ont accès au
+restaurant voient la jauge et le bilan.</p>
 HTML,
     ],
     [

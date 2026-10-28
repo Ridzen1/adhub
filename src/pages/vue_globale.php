@@ -4,6 +4,7 @@ require_once __DIR__ . '/../inc/projects.php';
 require_once __DIR__ . '/../inc/charges.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
 require_once __DIR__ . '/../inc/pennylane.php';
+require_once __DIR__ . '/../inc/objectifs.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_direction(); // vue consolidée : direction uniquement
 
@@ -217,6 +218,7 @@ require __DIR__ . '/../inc/layout_header.php';
     $pid    = (int) $p['id'];
     $caMois = $caMoisParResto[$pid] ?? 0.0;
     $caHier = $caHierParResto[$pid] ?? null;
+    $objectif = etat_objectif($pid);
   ?>
     <div class="col">
       <div class="card h-100 resto-card">
@@ -243,6 +245,11 @@ require __DIR__ . '/../inc/layout_header.php';
               </div>
             </div>
           </div>
+          <?php if ($objectif): ?>
+            <div class="mb-3"><?= bloc_objectif($objectif, $p['name'], true) ?></div>
+          <?php elseif (objectifs_disponibles()): ?>
+            <div class="goal-empty mb-3"><?= icon('target', 14) ?> Pas d'objectif ce mois-ci · <a href="/pages/objectifs.php?id=<?= $pid ?>#fixer">en fixer un</a></div>
+          <?php endif; ?>
           <div class="kpi-label mb-1">30 derniers jours · TTC</div>
           <?php if (array_sum($quotidien['series'][$pid] ?? []) > 0): ?>
             <div class="chart-box xs"><canvas id="chartResto<?= $pid ?>"></canvas></div>

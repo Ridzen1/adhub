@@ -412,6 +412,74 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
 /* Cartes restaurant (vue globale) : un cadre par restaurant, jamais de cumul */
 .resto-card .resto-value { font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; }
 
+/* Objectifs de CA (un restaurant face à son propre objectif, jamais aux autres) */
+.goal-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.goal-top .kpi-label { margin: 0; display: inline-flex; align-items: center; gap: 6px; }
+.goal-row { display: flex; align-items: center; gap: 12px; }
+.goal-track { position: relative; flex: 1; height: 12px; border-radius: 999px; background: #EEF0F3; overflow: hidden; }
+.goal-track.sm { height: 6px; margin: 6px 0; }
+.goal-fill {
+  display: block; height: 100%; width: var(--goal-pct, 0%); border-radius: 999px;
+  background: linear-gradient(90deg, var(--ad-blue), #3B82D6);
+  transition: width 1.1s cubic-bezier(.22, 1, .36, 1);
+}
+.hub-js .goal[data-goal]:not(.is-ready) .goal-fill { width: 0; } /* la jauge se remplit à l'arrivée sur la page */
+.goal.is-won .goal-fill, .goal-month.st-atteint .goal-fill { background: linear-gradient(90deg, var(--ad-green), #22A06B); }
+.goal-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255,255,255,.9); }
+.goal-mark:not(.passed) { background: var(--ad-border-strong); }
+.goal-pct { font-weight: 700; font-size: 1.05rem; min-width: 52px; text-align: right; }
+.goal-foot { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: .8rem; color: var(--ad-muted); }
+.goal-foot strong { color: var(--ad-text); }
+.goal-badge {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; border: 0;
+  font-size: .74rem; font-weight: 650; background: var(--ad-blue-soft); color: var(--ad-blue);
+}
+.goal-badge.goal-win { background: var(--ad-gold-soft); color: #7A5F12; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(200,168,75,.45); }
+.goal-badge.goal-win:hover { background: #F0E3BC; }
+.goal-streak { display: inline-flex; align-items: center; gap: 4px; color: #B4530A; font-weight: 600; }
+.goal-compact .goal-track { height: 8px; }
+.goal-compact .goal-pct { font-size: .92rem; }
+.goal-empty { font-size: .8rem; color: var(--ad-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Palier franchi : reflet qui traverse la jauge */
+.goal.is-new .goal-track::after {
+  content: ""; position: absolute; inset: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+  animation: goal-shine 1.4s ease-out 1.1s 2 both;
+}
+.goal.is-won.is-new .goal-badge { animation: goal-pop .6s cubic-bezier(.34, 1.56, .64, 1) 1s both; }
+@keyframes goal-shine { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+@keyframes goal-pop { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+.goal-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.goal-month { background: var(--ad-surface); border: 1px solid var(--ad-border); border-radius: var(--ad-radius-sm); padding: 12px 14px; }
+.goal-month-state { font-size: .72rem; white-space: nowrap; color: var(--ad-muted); display: inline-flex; align-items: center; gap: 3px; }
+.goal-month-pct { font-weight: 700; font-size: 1.15rem; margin-top: 6px; }
+.goal-month-foot { font-size: .74rem; color: var(--ad-muted); }
+.goal-month.st-atteint { border-color: rgba(15,123,85,.35); background: linear-gradient(180deg, var(--ad-green-soft), #fff 70%); }
+.goal-month.st-atteint .goal-month-state { color: var(--ad-green); font-weight: 600; }
+.goal-month.st-en_cours { border-color: rgba(31,95,173,.35); }
+.goal-month.st-en_cours .goal-month-state { color: var(--ad-blue); font-weight: 600; }
+.goal-month.st-aucun, .goal-month.st-a_venir { background: #FAFAFB; }
+
+/* Message de félicitations (en bas de l'écran) */
+.goal-toast {
+  position: fixed; left: 50%; bottom: 24px; z-index: 1090; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px);
+  background: var(--ad-navy); color: #fff; padding: 12px 18px; border-radius: 12px; box-shadow: var(--ad-shadow-lg);
+  font-size: .88rem; animation: goal-toast-in .45s cubic-bezier(.22, 1, .36, 1) both;
+}
+.goal-toast svg { color: var(--ad-gold); flex-shrink: 0; }
+.goal-toast.out { opacity: 0; transition: opacity .4s; }
+@keyframes goal-toast-in { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.goal-confetti { position: fixed; inset: 0; z-index: 1080; pointer-events: none; }
+
+/* Mouvement réduit demandé par le système : pas de confettis ni d'animation */
+@media (prefers-reduced-motion: reduce) {
+  .goal-fill { transition: none; }
+  .goal.is-new .goal-track::after { display: none; }
+  .goal.is-won.is-new .goal-badge, .goal-toast { animation: none; }
+}
+
 /* État vide */
 .empty-state { text-align: center; padding: 36px 16px; color: var(--ad-muted); }
 .empty-state svg { color: var(--ad-subtle); margin-bottom: 10px; }

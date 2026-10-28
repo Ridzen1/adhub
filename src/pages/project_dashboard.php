@@ -5,6 +5,7 @@ require_once __DIR__ . '/../inc/financials.php';
 require_once __DIR__ . '/../inc/daily.php';
 require_once __DIR__ . '/../inc/periodes.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
+require_once __DIR__ . '/../inc/objectifs.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_login();
 
@@ -91,6 +92,9 @@ if ($estRestaurant) {
     $projection = $joursEcoules >= 3
         ? $compMois['actuel']['ca'] / $joursEcoules * (int) $aujourdhui->format('t')
         : null;
+
+    // Objectif du mois fixé par la direction (null si aucun, ou migration 016 absente)
+    $objectif = etat_objectif($id);
 }
 
 // Immobilier : occupation et trésorerie de la fiche
@@ -157,6 +161,20 @@ require __DIR__ . '/../inc/layout_header.php';
           ]) ?>
     <?php endif; ?>
   </div>
+
+  <?php if ($objectif): ?>
+    <div class="card mb-4">
+      <div class="card-body">
+        <?= bloc_objectif($objectif, $project['name']) ?>
+        <div class="text-end mt-2 small"><a href="/pages/objectifs.php?id=<?= $id ?>">Tous les objectifs →</a></div>
+      </div>
+    </div>
+  <?php elseif (is_direction() && objectifs_disponibles()): ?>
+    <div class="goal-empty mb-4">
+      <?= icon('target', 16) ?> Aucun objectif de CA pour ce mois.
+      <a href="/pages/objectifs.php?id=<?= $id ?>#fixer">Fixer un objectif</a>
+    </div>
+  <?php endif; ?>
 
   <div class="card mb-4">
     <div class="card-header">
