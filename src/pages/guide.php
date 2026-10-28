@@ -65,12 +65,17 @@ HTML,
 <ul>
   <li><strong>Trésorerie consolidée</strong> : la somme des soldes bancaires, avec le nombre de comptes à
       découvert. Un solde qui date de plus de 30 jours est signalé comme <em>ancien</em>.</li>
-  <li><strong>CA restaurants</strong> du mois et d'hier, comparés à l'année précédente.</li>
   <li><strong>Taux d'occupation</strong> des logements et lots, avec le nombre de vacants.</li>
   <li><strong>Résultat net</strong> de l'année et <strong>fournisseurs à payer</strong> (d'après Pennylane).</li>
 </ul>
 <p>Juste en dessous, un cadre rouge liste les <strong>échéances de contrats à traiter</strong> dans
-toutes les sociétés. Plus bas, chaque pôle a son tableau : cliquez sur une société pour ouvrir son détail.</p>
+toutes les sociétés.</p>
+<p>Viennent ensuite les <strong>restaurants, chacun dans son propre cadre</strong> : CA d'hier, CA du mois
+et ses 30 derniers jours en graphique. Leurs chiffres ne sont jamais additionnés ni mis dans un même
+graphique : chaque restaurant a son concept et ses services, il n'est comparé qu'à lui-même l'année
+précédente. Chaque graphique a sa propre échelle, la hauteur des barres ne se compare donc pas d'un
+restaurant à l'autre.</p>
+<p>Plus bas, les autres pôles ont chacun leur tableau : cliquez sur une société pour ouvrir son détail.</p>
 HTML,
     ],
     [

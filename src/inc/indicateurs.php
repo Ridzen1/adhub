@@ -1,7 +1,10 @@
 <?php
 
 /**
- * Indicateurs consolidés pour la vue d'ensemble et les tableaux de bord.
+ * Indicateurs pour la vue d'ensemble et les tableaux de bord.
+ * Les restaurants ne sont jamais additionnés entre eux : chaque fonction qui reçoit
+ * plusieurs ids renvoie un résultat par société, sauf ca_societes(), à n'appeler
+ * qu'avec une seule société quand il s'agit de restaurants.
  * Lecture seule : rien ici n'écrit en base.
  */
 
@@ -44,7 +47,7 @@ function ca_par_societe(array $ids, string $du, string $au): array
 }
 
 /**
- * CA jour par jour et par société, jours sans saisie à 0 : prêt pour un graphique empilé.
+ * CA jour par jour et par société, jours sans saisie à 0 : un graphique par société.
  * Retourne ['labels' => [...], 'series' => [project_id => [valeurs]]]
  */
 function ca_quotidien_societes(array $ids, string $du, string $au): array
@@ -90,21 +93,4 @@ function resultat_annee(array $ids, int $annee, ?int $jusquAuMois = null): array
     $stmt->execute(['d' => sprintf('%04d-01-01', $annee), 'f' => $fin]);
     $r = $stmt->fetch();
     return ['revenus' => (float) $r['revenus'], 'charges' => (float) $r['charges'], 'mois' => (int) $r['mois']];
-}
-
-/**
- * Comparatif d'une société sur une période et sur la même période N-1.
- * Vue 'mois' : mois calendaire N-1 ; autres vues : décalage de 364 jours (cf. periodes.php).
- */
-function comparatif_societes(array $ids, string $vue): array
-{
-    $b  = bornes_periode($vue);
-    $a  = ca_societes($ids, $b['debut'], $b['fin']);
-    $n1 = ca_societes($ids, $b['n1_debut'], $b['n1_fin']);
-    return [
-        'bornes' => $b,
-        'actuel' => $a,
-        'n1'     => $n1,
-        'var'    => $n1['jours'] > 0 ? variation($a['ca'], $n1['ca']) : null,
-    ];
 }

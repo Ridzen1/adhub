@@ -383,6 +383,7 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
 .chart-box { position: relative; height: 300px; }
 .chart-box.sm { height: 220px; }
 .chart-box.lg { height: 360px; }
+.chart-box.xs { height: 150px; }
 .legend-inline { display: flex; gap: 14px; font-size: .78rem; color: var(--ad-muted); font-weight: 500; }
 .legend-inline i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 
@@ -407,6 +408,9 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
 .company-card { display: flex; flex-direction: column; gap: 14px; height: 100%; }
 .company-card .cc-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .company-card .cc-name { font-weight: 650; font-size: 1rem; }
+
+/* Cartes restaurant (vue globale) : un cadre par restaurant, jamais de cumul */
+.resto-card .resto-value { font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; }
 
 /* État vide */
 .empty-state { text-align: center; padding: 36px 16px; color: var(--ad-muted); }
