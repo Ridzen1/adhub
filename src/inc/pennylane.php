@@ -591,6 +591,13 @@ function pennylane_alimenter_suivi_mensuel(): int
     return $ecrits;
 }
 
+/** La migration 015 (solde de départ) est-elle passée sur cette base ? */
+function pennylane_tresorerie_prete(): bool
+{
+    static $prete = null;
+    return $prete ??= (bool) get_db()->query("SHOW COLUMNS FROM projects LIKE 'solde_reference_le'")->fetch();
+}
+
 /**
  * Trésorerie de chaque société reliée : solde saisi dans la fiche (point de départ)
  * + mouvements bancaires Pennylane postérieurs à sa date. Sans solde de départ, ou
@@ -599,6 +606,9 @@ function pennylane_alimenter_suivi_mensuel(): int
  */
 function pennylane_maj_tresorerie(): int
 {
+    if (!pennylane_tresorerie_prete()) {
+        return 0;
+    }
     $pdo = get_db();
     $projets = $pdo->query(
         "SELECT DISTINCT p.id, p.solde_reference, p.solde_reference_le

@@ -49,8 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Données arrivées par le script SQL (phpMyAdmin) : on les rattache aussi
+// Données arrivées par le script SQL (phpMyAdmin) : on les rattache aussi,
+// et la trésorerie est recalculée avec les nouvelles opérations bancaires
 pennylane_relier_automatiquement();
+pennylane_maj_tresorerie();
 
 $correspondances = pennylane_correspondances();
 $imports  = pennylane_derniers_imports(8);
@@ -64,6 +66,10 @@ require __DIR__ . '/../inc/layout_header.php';
 <?= page_header('Import Pennylane', "Déposez l'export Excel de Pennylane : les factures et les opérations bancaires alimentent l'onglet Comptabilité de chaque société.", '', 'Administration') ?>
 
 <?php if ($erreur): ?><div class="alert alert-danger"><?= h($erreur) ?></div><?php endif; ?>
+<?php if (!pennylane_tresorerie_prete()): ?>
+  <div class="alert alert-warning">La trésorerie ne peut pas être calculée : passez d'abord la migration
+    <code>015_tresorerie_pennylane.sql</code> dans phpMyAdmin.</div>
+<?php endif; ?>
 <?php if (isset($_GET['enregistre'])): ?><div class="alert alert-success">Correspondances enregistrées.</div><?php endif; ?>
 <?php if ($resultat): ?>
   <div class="alert alert-success">

@@ -12,6 +12,16 @@ require_direction();
 
 $erreur = null;
 
+if (!pennylane_tresorerie_prete()) {
+    $pageTitle = 'Trésorerie';
+    require __DIR__ . '/../inc/layout_header.php';
+    echo page_header('Trésorerie des sociétés', '', '', 'Administration');
+    echo '<div class="alert alert-warning">Passez d\'abord la migration <code>015_tresorerie_pennylane.sql</code> '
+       . 'dans phpMyAdmin (base de production), puis rechargez cette page.</div>';
+    require __DIR__ . '/../inc/layout_footer.php';
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_valide()) {
         $erreur = "La page a expiré, recommencez.";
@@ -46,6 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+pennylane_relier_automatiquement();
+pennylane_maj_tresorerie();
 $societes = pennylane_soldes_depart();
 $sansDepart = count(array_filter($societes, fn($s) => $s['solde_reference'] === null));
 $sansBanque = count(array_filter($societes, fn($s) => $s['solde_reference'] !== null && (int) $s['nb_liens'] === 0));
