@@ -169,6 +169,10 @@ function icon(string $nom, int $taille = 18): string
         'clock'     => '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
         'pie'       => '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
         'bank'      => '<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l8 5H4z"/>',
+        'target'    => '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+        'trophy'    => '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+        'flag'      => '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/>',
+        'flame'     => '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
     ];
     $p = $chemins[$nom] ?? '';
     return '<svg width="' . $taille . '" height="' . $taille . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -189,7 +193,7 @@ function lien_societe(int $pid): string
 
 /**
  * En-tête commun des pages d'une société : nom, type, onglets.
- * $actif : clé de l'onglet courant (dashboard, saisie, evolution, analyse, fiche, charges, documents).
+ * $actif : clé de l'onglet courant (dashboard, saisie, evolution, analyse, objectifs, fiche, charges, documents).
  * $actions : HTML des boutons à droite (optionnel).
  */
 /** Vrai si un export Pennylane a été relié à cette société (onglet Comptabilité) */
@@ -219,6 +223,7 @@ function company_header(array $project, string $actif, string $actions = '', str
         $onglets['analyse']   = ['Analyse des ventes', '/pages/analyse_caisse.php', 'dashboard'];
         $onglets['evolution'] = ['Évolution', '/pages/evolution.php', 'dashboard'];
         $onglets['saisie']    = ['Saisie quotidienne', '/pages/saisie_quotidienne.php', 'dashboard'];
+        $onglets['objectifs'] = ['Objectifs', '/pages/objectifs.php', 'dashboard'];
     }
     $onglets['charges']   = ['Charges fixes', '/pages/charges.php', 'dashboard'];
     if (societe_a_compta_pennylane($id)) {
