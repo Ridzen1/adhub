@@ -63,18 +63,22 @@ $nbPerimes    = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !==
 $nbSansSolde  = count(array_filter($projects, fn($p) => $p['solde_bancaire'] === null));
 $nbNegatifs   = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !== null && (float) $p['solde_bancaire'] < 0));
 
+// Restaurants : chacun a ses propres indicateurs, jamais additionnés ni mis côte
+// à côte dans un même graphique (ils ne proposent pas les mêmes services).
+// La seule comparaison faite est celle de chaque restaurant avec lui-même à N-1.
 $idsRestos = array_map(fn($p) => (int) $p['id'], $groupes['restaurants']);
-$moisResto = comparatif_societes($idsRestos, 'mois');
-$hierResto = comparatif_societes($idsRestos, 'jour');
+$bMois = bornes_periode('mois');
+$bHier = bornes_periode('jour');
 
 $aujourdhui = new DateTimeImmutable('today');
 $du30 = $aujourdhui->modify('-30 days')->format('Y-m-d');
 $au30 = $aujourdhui->modify('-1 day')->format('Y-m-d');
 $quotidien = ca_quotidien_societes($idsRestos, $du30, $au30);
 
-$caMoisParResto = ca_par_societe($idsRestos, $moisResto['bornes']['debut'], $moisResto['bornes']['fin']);
-$caN1ParResto   = ca_par_societe($idsRestos, $moisResto['bornes']['n1_debut'], $moisResto['bornes']['n1_fin']);
-$caHierParResto = ca_par_societe($idsRestos, $hierResto['bornes']['debut'], $hierResto['bornes']['fin']);
+$caMoisParResto   = ca_par_societe($idsRestos, $bMois['debut'], $bMois['fin']);
+$caN1ParResto     = ca_par_societe($idsRestos, $bMois['n1_debut'], $bMois['n1_fin']);
+$caHierParResto   = ca_par_societe($idsRestos, $bHier['debut'], $bHier['fin']);
+$caHierN1ParResto = ca_par_societe($idsRestos, $bHier['n1_debut'], $bHier['n1_fin']);
 
 $lotsTotal = 0;
 $lotsLoues = 0;
@@ -146,15 +150,6 @@ require __DIR__ . '/../inc/layout_header.php';
                 . ($nbPerimes ? '<span>' . $nbPerimes . ' solde' . ($nbPerimes > 1 ? 's' : '') . ' ancien' . ($nbPerimes > 1 ? 's' : '') . '</span>' : '')
                 . ($nbSansSolde && is_direction() ? '<a href="/pages/admin_tresorerie.php" style="color:inherit">' . $nbSansSolde . ' sans solde</a>' : ''),
       ]) ?>
-  <?= kpi('CA restaurants · ' . $moisLabel, eur($moisResto['actuel']['ca']), [
-        'icon' => 'utensils',
-        'foot' => $moisResto['var'] !== null ? delta($moisResto['var'], false, 'vs N-1') : 'Pas de comparaison N-1',
-        'spark' => 'sparkRestos',
-      ]) ?>
-  <?= kpi('CA restaurants · hier', eur($hierResto['actuel']['ca']), [
-        'icon' => 'calendar',
-        'foot' => ($hierResto['var'] !== null ? delta($hierResto['var'], false, 'vs même jour N-1') : date('d/m', strtotime($hierResto['bornes']['debut']))),
-      ]) ?>
   <?= kpi("Taux d'occupation", $tauxOccupation !== null ? pourcent($tauxOccupation) : '—', [
         'icon' => 'home',
         'foot' => $lotsTotal ? $lotsLoues . ' lots loués sur ' . $lotsTotal
@@ -210,16 +205,84 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php endif; ?>
 
 <?php if ($idsRestos): ?>
-<div class="row g-4 mb-4">
-  <div class="col-lg-8">
-    <div class="card h-100">
-      <div class="card-header">
-        Chiffre d'affaires des restaurants
-        <span class="card-hint">30 derniers jours · TTC</span>
-      </div>
-      <div class="card-body"><div class="chart-box"><canvas id="chartRestos"></canvas></div></div>
-    </div>
+<div class="family-head mb-3">
+  <span class="family-icon t-resto"><?= icon('utensils', 18) ?></span>
+  <div>
+    <div class="family-title">Restaurants</div>
+    <div class="family-sub">Chaque restaurant est suivi séparément et comparé uniquement à lui-même l'an dernier.</div>
   </div>
+</div>
+<div class="row row-cols-1 row-cols-xl-2 g-4 mb-4">
+  <?php foreach ($groupes['restaurants'] as $p):
+    $pid    = (int) $p['id'];
+    $caMois = $caMoisParResto[$pid] ?? 0.0;
+    $caHier = $caHierParResto[$pid] ?? null;
+  ?>
+    <div class="col">
+      <div class="card h-100 resto-card">
+        <div class="card-header">
+          <a href="/pages/project_dashboard.php?id=<?= $pid ?>" class="row-link"><?= h($p['name']) ?></a>
+          <span class="card-hint">Trésorerie <?= afficher_solde($p) ?></span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <div class="kpi-label">CA hier</div>
+              <div class="resto-value num"><?= $caHier !== null ? eur($caHier) : '<span class="text-muted fw-normal">—</span>' ?></div>
+              <div class="kpi-foot mt-1">
+                <?= $caHier !== null && isset($caHierN1ParResto[$pid])
+                    ? delta(ecart_pct($caHier, $caHierN1ParResto[$pid]), false, 'vs même jour N-1')
+                    : '<span>' . date('d/m', strtotime($bHier['debut'])) . '</span>' ?>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="kpi-label">CA · <?= h($moisLabel) ?></div>
+              <div class="resto-value num"><?= $caMois > 0 ? eur($caMois) : '<span class="text-muted fw-normal fs-6">pas de saisie</span>' ?></div>
+              <div class="kpi-foot mt-1">
+                <?= isset($caN1ParResto[$pid]) ? delta(ecart_pct($caMois, $caN1ParResto[$pid]), false, 'vs N-1') : '<span>Pas de comparaison N-1</span>' ?>
+              </div>
+            </div>
+          </div>
+          <div class="kpi-label mb-1">30 derniers jours · TTC</div>
+          <?php if (array_sum($quotidien['series'][$pid] ?? []) > 0): ?>
+            <div class="chart-box xs"><canvas id="chartResto<?= $pid ?>"></canvas></div>
+          <?php else: ?>
+            <div class="text-muted small py-3">Aucune vente remontée sur les 30 derniers jours.</div>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<div class="row g-4 mb-4">
+<?php if ($plRetards): ?>
+  <div class="col-lg-8">
+<?php ?>
+<div class="card h-100" id="retards-fournisseurs">
+  <div class="card-header">
+    Factures fournisseurs échues
+    <span class="card-hint">Reste à payer d'après Pennylane</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0 align-middle">
+      <thead><tr><th>Société</th><th class="text-end">Échu</th><th class="text-end">Total à payer</th></tr></thead>
+      <tbody>
+        <?php foreach (array_slice($plRetards, 0, 10, true) as $pid => $r): ?>
+          <tr>
+            <td><a class="row-link" href="/pages/comptabilite.php?id=<?= (int) $pid ?>"><?= h($nomsProjets[$pid]) ?></a></td>
+            <td class="text-end fw-semibold text-danger"><?= eur($r['echu']) ?></td>
+            <td class="text-end"><?= eur($r['reste']) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+  </div>
+<?php endif; ?>
+<?php if ($repartition): ?>
   <div class="col-lg-4">
     <div class="card h-100">
       <div class="card-header">Répartition de la trésorerie</div>
@@ -236,36 +299,12 @@ require __DIR__ . '/../inc/layout_header.php';
       </div>
     </div>
   </div>
-</div>
 <?php endif; ?>
-
-<?php if ($plRetards): $maxEchu = max(array_column($plRetards, 'echu')); ?>
-<div class="card mb-4" id="retards-fournisseurs">
-  <div class="card-header">
-    Factures fournisseurs échues
-    <span class="card-hint">Reste à payer d'après Pennylane</span>
-  </div>
-  <div class="card-body p-0">
-    <table class="table mb-0 align-middle">
-      <thead><tr><th>Société</th><th class="text-end">Échu</th><th class="d-none d-md-table-cell" style="width:30%"></th><th class="text-end">Total à payer</th></tr></thead>
-      <tbody>
-        <?php foreach (array_slice($plRetards, 0, 10, true) as $pid => $r): ?>
-          <tr>
-            <td><a class="row-link" href="/pages/comptabilite.php?id=<?= (int) $pid ?>"><?= h($nomsProjets[$pid]) ?></a></td>
-            <td class="text-end fw-semibold text-danger"><?= eur($r['echu']) ?></td>
-            <td class="d-none d-md-table-cell"><div class="meter bad"><span style="width:<?= max(2, round($r['echu'] / $maxEchu * 100)) ?>%"></span></div></td>
-            <td class="text-end"><?= eur($r['reste']) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
 </div>
-<?php endif; ?>
 
 <?php foreach ($sections as $cle => $s):
   $liste = $groupes[$cle];
-  if (!$liste) continue; // on n'affiche pas une famille vide
+  if (!$liste || $cle === 'restaurants') continue; // famille vide, ou restaurants (cartes séparées plus haut)
 ?>
   <div class="card mb-4">
     <div class="card-header">
@@ -288,11 +327,7 @@ require __DIR__ . '/../inc/layout_header.php';
           <tr>
             <th style="width:34%">Société</th>
             <th class="text-end">Trésorerie</th>
-            <?php if ($cle === 'restaurants'): ?>
-              <th class="text-end">CA hier</th>
-              <th class="text-end">CA du mois</th>
-              <th class="text-end">vs N-1</th>
-            <?php elseif ($cle === 'sci'): ?>
+            <?php if ($cle === 'sci'): ?>
               <th class="text-end">Occupation</th>
             <?php elseif ($cle === 'mdb'): ?>
               <th class="text-end">Affaires en cours</th>
@@ -304,13 +339,7 @@ require __DIR__ . '/../inc/layout_header.php';
             <tr>
               <td><a href="/pages/project_dashboard.php?id=<?= $pid ?>" class="row-link"><?= h($p['name']) ?></a></td>
               <td class="text-end"><?= afficher_solde($p) ?></td>
-              <?php if ($cle === 'restaurants'): ?>
-                <td class="text-end"><?= isset($caHierParResto[$pid]) ? eur($caHierParResto[$pid]) : '<span class="text-muted">—</span>' ?></td>
-                <td class="text-end fw-semibold">
-                  <?= ($caMoisParResto[$pid] ?? 0) > 0 ? eur($caMoisParResto[$pid]) : '<span class="text-muted fw-normal">pas de saisie</span>' ?>
-                </td>
-                <td class="text-end"><?= isset($caN1ParResto[$pid]) ? delta(ecart_pct($caMoisParResto[$pid] ?? 0, $caN1ParResto[$pid])) : '<span class="text-muted">—</span>' ?></td>
-              <?php elseif ($cle === 'sci'): ?>
+              <?php if ($cle === 'sci'): ?>
                 <td class="text-end"><?= afficher_occupation($p) ?></td>
               <?php elseif ($cle === 'mdb'): ?>
                 <td class="text-end"><?= $p['affaires_en_cours'] !== null ? (int) $p['affaires_en_cours'] : '<span class="text-muted">—</span>' ?></td>
@@ -330,32 +359,27 @@ require __DIR__ . '/../inc/layout_header.php';
   </div>
 <?php endif; ?>
 
-<?php if ($idsRestos): ?>
 <script>
 (function () {
   var c = ADHUB.colors;
-  var noms = <?= json_encode(array_column($groupes['restaurants'], 'name', 'id'), JSON_UNESCAPED_UNICODE) ?>;
-  var series = <?= json_encode($quotidien['series']) ?>;
   var labels = <?= json_encode($quotidien['labels']) ?>;
-  var palette = ['#0F7B55', '#1F5FAD', '#C8A84B', '#7C5CC4', '#D9673B', '#2BA0B5'];
-  var datasets = Object.keys(series).map(function (id, i) {
-    return { label: noms[id], data: series[id], backgroundColor: palette[i % palette.length], stack: 'ca', maxBarThickness: 22 };
+  // Un graphique par restaurant, chacun à sa propre échelle : pas de comparaison visuelle entre eux.
+  var series = <?= json_encode((object) $quotidien['series']) ?>;
+  Object.keys(series).forEach(function (id) {
+    var el = document.getElementById('chartResto' + id);
+    if (!el) return;
+    new Chart(el, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'CA', data: series[id], backgroundColor: c.green, maxBarThickness: 14 }] },
+      options: {
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } },
+        scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 16 } },
+                  y: { beginAtZero: true, ticks: { maxTicksLimit: 4, callback: function (v) { return ADHUB.eurShort(v); } } } }
+      }
+    });
   });
-  new Chart(document.getElementById('chartRestos'), {
-    type: 'bar',
-    data: { labels: labels, datasets: datasets },
-    options: {
-      plugins: { legend: { position: 'top', align: 'end' },
-                 tooltip: { callbacks: { label: function (x) { return ' ' + x.dataset.label + ' : ' + ADHUB.eur(x.raw); },
-                                         footer: function (items) { return 'Total : ' + ADHUB.eur(items.reduce(function (s, x) { return s + x.raw; }, 0)); } } } },
-      scales: { x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
-                y: { stacked: true, ticks: { callback: function (v) { return ADHUB.eurShort(v); } } } }
-    }
-  });
-  var total = Object.keys(series).length ? labels.map(function (_, i) { return Object.keys(series).reduce(function (s, id) { return s + series[id][i]; }, 0); }) : [];
-  ADHUB.spark('sparkRestos', total, c.green);
 
-  new Chart(document.getElementById('chartTreso'), {
+  if (document.getElementById('chartTreso')) new Chart(document.getElementById('chartTreso'), {
     type: 'doughnut',
     data: {
       labels: <?= json_encode(array_column($repartition, 'titre'), JSON_UNESCAPED_UNICODE) ?>,
@@ -366,6 +390,5 @@ require __DIR__ . '/../inc/layout_header.php';
   });
 })();
 </script>
-<?php endif; ?>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>
