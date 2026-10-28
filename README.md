@@ -291,6 +291,16 @@ dans **Administration → Import Pennylane** (migration `013_pennylane.sql`).
   flux bancaires, opérations à justifier, principaux fournisseurs, factures ouvertes.
   La vue d'ensemble affiche le total à payer et les sociétés avec des factures échues.
 
+## Objectifs de CA des restaurants
+
+Migration : `database/016_objectifs.sql` (table `objectifs_ca`). Sans elle, les pages s'affichent sans objectifs.
+
+- La direction fixe un CA TTC par mois et par restaurant (onglet **Objectifs** du restaurant). Aucune saisie pour les équipes : la progression vient des ventes de caisse (`daily_entries`).
+- Jauge sur le tableau de bord du restaurant et dans son cadre de la vue d'ensemble, paliers 50 / 75 / 100 / 120 %, série de mois atteints d'affilée, bilan de l'année mois par mois.
+- Animation (`assets/adhub.js`) : message à chaque nouveau palier, confettis à 100 %. Le plus haut palier vu est retenu dans le navigateur (localStorage) pour ne pas rejouer l'animation ; clic sur le badge doré pour la revoir. Rien ne bouge si le système demande de réduire les animations (`prefers-reduced-motion`).
+- Jamais de classement ni de comparaison entre restaurants : chacun face à son propre objectif.
+- Code : `src/inc/objectifs.php`, `src/pages/objectifs.php`.
+
 ## Prochaine étape
 
 - Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
