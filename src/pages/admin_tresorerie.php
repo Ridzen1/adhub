@@ -12,6 +12,16 @@ require_direction();
 
 $erreur = null;
 
+if (!pennylane_tresorerie_prete()) {
+    $pageTitle = 'Trésorerie';
+    require __DIR__ . '/../inc/layout_header.php';
+    echo page_header('Trésorerie des sociétés', '', '', 'Administration');
+    echo '<div class="alert alert-warning">Passez d\'abord la migration <code>015_tresorerie_pennylane.sql</code> '
+       . 'dans phpMyAdmin (base de production), puis rechargez cette page.</div>';
+    require __DIR__ . '/../inc/layout_footer.php';
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_valide()) {
         $erreur = "La page a expiré, recommencez.";
@@ -46,6 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+pennylane_relier_automatiquement();
+pennylane_maj_tresorerie();
 $societes = pennylane_soldes_depart();
 $sansDepart = count(array_filter($societes, fn($s) => $s['solde_reference'] === null));
 $sansBanque = count(array_filter($societes, fn($s) => $s['solde_reference'] !== null && (int) $s['nb_liens'] === 0));
@@ -66,7 +78,9 @@ require __DIR__ . '/../inc/layout_header.php';
 
 <div class="card mb-4">
   <div class="card-body small">
-    <strong>Où trouver le solde ?</strong> Le plus simple : l'écran Trésorerie de Pennylane (solde de chaque compte
+    <strong>Rien à saisir pour les sociétés dont l'export Pennylane contient les soldes des comptes</strong>
+    (partie « Trésorerie Pennylane » du script) : leur solde est repris à chaque import. Pour les autres :
+    <br><strong>Où trouver le solde ?</strong> Le plus simple : l'écran Trésorerie de Pennylane (solde de chaque compte
     à aujourd'hui), ou le relevé bancaire d'une fin de mois. Pour une société qui a plusieurs comptes, additionnez-les.
     Le solde doit être celui du <em>soir</em> de la date indiquée : seules les opérations postérieures sont ajoutées.
   </div>
@@ -102,6 +116,8 @@ require __DIR__ . '/../inc/layout_header.php';
                 <div class="fw-semibold"><?= h($s['name']) ?></div>
                 <?php if ((int) $s['nb_liens'] === 0): ?>
                   <div class="small text-warning">Pas reliée à Pennylane : le solde ne bougera pas tout seul</div>
+                <?php elseif ($s['nb_comptes'] > 0): ?>
+                  <div class="small text-success">Soldes repris de Pennylane (<?= (int) $s['nb_comptes'] ?> compte<?= $s['nb_comptes'] > 1 ? 's' : '' ?>)</div>
                 <?php elseif ($s['solde_reference'] !== null): ?>
                   <div class="small text-muted"><?= number_format($s['nb_operations'], 0, ',', ' ') ?> opération(s) Pennylane depuis</div>
                 <?php endif; ?>

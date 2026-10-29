@@ -41,6 +41,9 @@ $ouvertes = pennylane_factures_ouvertes($noms, 'fournisseur', 40);
 $aEncaisser = pennylane_factures_ouvertes($noms, 'client', 20);
 $operations = pennylane_dernieres_transactions($noms, 25);
 $import   = pennylane_dernier_import();
+$comptes  = pennylane_comptes_projet($noms);
+$tresoMois = pennylane_tresorerie_mensuelle($noms);
+$tva      = pennylane_tva_projet($noms);
 $avecBanque = $s['nb_transactions'] > 0;
 $aujourdhui = date('Y-m-d');
 
@@ -129,6 +132,71 @@ require __DIR__ . '/../inc/layout_header.php';
         ]) ?>
   <?php endif; ?>
 </div>
+
+<?php if ($comptes || $tresoMois): ?>
+<div class="row g-4 mb-4">
+  <?php if ($comptes): $totalComptes = array_sum(array_map(fn($c) => (float) $c['solde'], $comptes)); ?>
+  <div class="col-xl-5">
+    <div class="card h-100">
+      <div class="card-header">
+        Comptes bancaires
+        <span class="text-muted small fw-normal">au <?= date('d/m/Y', strtotime($comptes[0]['releve_le'])) ?></span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 align-middle">
+          <tbody>
+            <?php foreach ($comptes as $c): if ((float) $c['solde'] == 0.0 && !$c['synchronise']) { continue; } ?>
+              <tr>
+                <td>
+                  <div class="fw-semibold"><?= h($c['banque'] ?? '') ?></div>
+                  <div class="small text-muted">
+                    <?= $c['iban_fin'] ? '…' . h($c['iban_fin']) : '' ?>
+                    <?php if (!$c['synchronise']): ?><span class="text-warning">non synchronisé</span><?php endif; ?>
+                  </div>
+                </td>
+                <td class="text-end fw-semibold <?= (float) $c['solde'] < 0 ? 'text-danger' : '' ?>"><?= eur((float) $c['solde'], 2) ?></td>
+              </tr>
+            <?php endforeach; ?>
+            <tr class="table-light">
+              <td class="fw-semibold">Total</td>
+              <td class="text-end fw-bold"><?= eur($totalComptes, 2) ?></td>
+            </tr>
+            <?php foreach ($tva as $t): ?>
+              <tr>
+                <td class="small text-muted">TVA <?= h(mb_strtolower($t['frequence'] ?? '')) ?> en cours (<?= h(mb_strtolower($t['sens'] ?? '')) ?>)</td>
+                <td class="text-end small"><?= eur((float) $t['montant']) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+  <?php if ($tresoMois): ?>
+  <div class="<?= $comptes ? 'col-xl-7' : 'col-12' ?>">
+    <div class="card h-100">
+      <div class="card-header">Trésorerie mois par mois <span class="text-muted small fw-normal">d'après Pennylane</span></div>
+      <div class="card-body p-0" style="max-height:420px;overflow:auto">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr><th>Mois</th><th class="text-end">Encaissements</th><th class="text-end">Décaissements</th><th class="text-end">Solde fin</th></tr></thead>
+          <tbody>
+            <?php foreach (array_reverse($tresoMois) as $m): ?>
+              <tr>
+                <td class="text-nowrap"><?= h(mois_court($m['mois'] . '-01')) ?><?= $m['mois_en_cours'] ? ' <span class="small text-muted">en cours</span>' : '' ?></td>
+                <td class="text-end text-success"><?= eur((float) $m['encaissements']) ?></td>
+                <td class="text-end text-danger"><?= eur((float) $m['decaissements']) ?></td>
+                <td class="text-end fw-semibold"><?= $m['solde_fin'] !== null ? eur((float) $m['solde_fin']) : '<span class="text-muted">—</span>' ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <div class="card mb-4">
   <div class="card-header">
