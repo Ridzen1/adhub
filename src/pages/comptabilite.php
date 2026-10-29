@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/projects.php';
 require_once __DIR__ . '/../inc/pennylane.php';
+require_once __DIR__ . '/../inc/daily.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_login();
 
@@ -20,6 +21,11 @@ if (!$project) {
 require_project_access($id, 'dashboard');
 
 $noms = pennylane_noms_projet($id);
+// Restaurant : le CA vient des caisses, les factures clients Pennylane ne sont ni gardées ni affichées
+$estRestaurant = is_restaurant($project);
+if ($estRestaurant) {
+    pennylane_retirer_factures_clients_restaurants();
+}
 
 [$inA, $pA] = pl_in($noms, 'a');
 [$inB, $pB] = pl_in($noms, 'b');
@@ -38,7 +44,7 @@ $s        = pennylane_synthese($noms, $du, $au);
 $parMois  = pennylane_par_mois($noms, $du, $annee < (int) date('Y') ? $au : date('Y-m-d'));
 $top      = pennylane_top_fournisseurs($noms, $du, $au, 8);
 $ouvertes = pennylane_factures_ouvertes($noms, 'fournisseur', 40);
-$aEncaisser = pennylane_factures_ouvertes($noms, 'client', 20);
+$aEncaisser = $estRestaurant ? [] : pennylane_factures_ouvertes($noms, 'client', 20);
 $operations = pennylane_dernieres_transactions($noms, 25);
 $import   = pennylane_dernier_import();
 $comptes  = pennylane_comptes_projet($noms);
@@ -112,7 +118,7 @@ require __DIR__ . '/../inc/layout_header.php';
           'icon' => 'alert', 'class' => $s['a_justifier'] ? 'kpi-warn' : '',
           'foot' => $s['nb_transactions'] ? pourcent($s['a_justifier'] / $s['nb_transactions'] * 100) . ' des opérations sans justificatif' : '',
         ]) ?>
-  <?php elseif (!$s['client']['nb']): $moisActifs = count(array_filter($parMois, fn($m) => $m['achats'] > 0)) ?: 1; ?>
+  <?php elseif ($estRestaurant || !$s['client']['nb']): $moisActifs = count(array_filter($parMois, fn($m) => $m['achats'] > 0)) ?: 1; ?>
     <?= kpi('Factures en retard', (string) $f['nb_echues'], [
           'icon' => 'alert', 'class' => $f['nb_echues'] ? 'kpi-warn' : '',
           'foot' => $f['nb_echues'] ? 'échéance dépassée, non soldées' : 'Aucune échéance dépassée',
