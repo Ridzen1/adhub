@@ -8,6 +8,10 @@ require_once __DIR__ . '/../inc/objectifs.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_direction(); // vue consolidée : direction uniquement
 
+// Un export Pennylane passé par phpMyAdmin n'a pas déclenché le calcul : on le refait ici
+pennylane_relier_automatiquement();
+pennylane_maj_tresorerie();
+
 $projects = get_global_overview();
 $groupes  = group_projects_for_overview($projects);
 $alertes  = get_alertes_toutes_societes();

@@ -78,7 +78,9 @@ require __DIR__ . '/../inc/layout_header.php';
 
 <div class="card mb-4">
   <div class="card-body small">
-    <strong>Où trouver le solde ?</strong> Le plus simple : l'écran Trésorerie de Pennylane (solde de chaque compte
+    <strong>Rien à saisir pour les sociétés dont l'export Pennylane contient les soldes des comptes</strong>
+    (partie « Trésorerie Pennylane » du script) : leur solde est repris à chaque import. Pour les autres :
+    <br><strong>Où trouver le solde ?</strong> Le plus simple : l'écran Trésorerie de Pennylane (solde de chaque compte
     à aujourd'hui), ou le relevé bancaire d'une fin de mois. Pour une société qui a plusieurs comptes, additionnez-les.
     Le solde doit être celui du <em>soir</em> de la date indiquée : seules les opérations postérieures sont ajoutées.
   </div>
@@ -114,6 +116,8 @@ require __DIR__ . '/../inc/layout_header.php';
                 <div class="fw-semibold"><?= h($s['name']) ?></div>
                 <?php if ((int) $s['nb_liens'] === 0): ?>
                   <div class="small text-warning">Pas reliée à Pennylane : le solde ne bougera pas tout seul</div>
+                <?php elseif ($s['nb_comptes'] > 0): ?>
+                  <div class="small text-success">Soldes repris de Pennylane (<?= (int) $s['nb_comptes'] ?> compte<?= $s['nb_comptes'] > 1 ? 's' : '' ?>)</div>
                 <?php elseif ($s['solde_reference'] !== null): ?>
                   <div class="small text-muted"><?= number_format($s['nb_operations'], 0, ',', ' ') ?> opération(s) Pennylane depuis</div>
                 <?php endif; ?>

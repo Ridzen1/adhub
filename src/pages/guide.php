@@ -286,8 +286,10 @@ HTML,
         'html' => <<<HTML
 <p>Menu <a href="/pages/admin_tresorerie.php">Administration → Trésorerie</a>.</p>
 <ol class="guide-steps">
-  <li>Une seule fois par société : saisissez son solde bancaire réel à une date (écran Trésorerie de Pennylane
-      ou relevé de fin de mois ; plusieurs comptes s'additionnent).</li>
+  <li>Si l'export Pennylane contient la partie « Trésorerie Pennylane » (soldes des comptes), il n'y a rien
+      à saisir : le solde de chaque société est repris à chaque import.</li>
+  <li>Pour une société absente de cette partie : saisissez une fois son solde bancaire réel à une date
+      (relevé de fin de mois ; plusieurs comptes s'additionnent).</li>
   <li>Ensuite, chaque import Pennylane ajoute les opérations bancaires postérieures : la trésorerie de la
       vue d'ensemble et du tableau de bord se met à jour sans autre saisie.</li>
   <li>Si un écart apparaît un jour avec la banque, ressaisissez simplement le solde du jour.</li>

@@ -268,6 +268,7 @@ function pennylane_relier_automatiquement(): void
     $projets = $pdo->query("SELECT id, name FROM projects WHERE status = 'active'")->fetchAll();
     $noms = $pdo->query(
         "SELECT societe FROM pennylane_factures UNION SELECT societe FROM pennylane_transactions"
+        . (pennylane_table_existe('pennylane_comptes') ? " UNION SELECT societe FROM pennylane_comptes" : "")
     )->fetchAll(PDO::FETCH_COLUMN);
     $connus = $pdo->query("SELECT societe FROM pennylane_societes")->fetchAll(PDO::FETCH_COLUMN);
     $ins = $pdo->prepare("INSERT INTO pennylane_societes (societe, project_id) VALUES (:s, :p)");
@@ -598,10 +599,19 @@ function pennylane_tresorerie_prete(): bool
     return $prete ??= (bool) get_db()->query("SHOW COLUMNS FROM projects LIKE 'solde_reference_le'")->fetch();
 }
 
+/** Une table existe-t-elle ? (les tables de trésorerie arrivent avec le script SQL de l'export) */
+function pennylane_table_existe(string $table): bool
+{
+    static $cache = [];
+    return $cache[$table] ??= (bool) get_db()->query("SHOW TABLES LIKE " . get_db()->quote($table))->fetch();
+}
+
 /**
- * Trésorerie de chaque société reliée : solde saisi dans la fiche (point de départ)
- * + mouvements bancaires Pennylane postérieurs à sa date. Sans solde de départ, ou
- * sans banque connectée à Pennylane, le solde de la fiche reste tel quel.
+ * Trésorerie de chaque société reliée.
+ * 1. Si l'export contient les soldes des comptes (table pennylane_comptes), leur somme à la
+ *    date du relevé devient le point de départ : rien à saisir.
+ * 2. Sinon, le point de départ est le solde saisi dans la fiche ou la page Trésorerie.
+ * On y ajoute ensuite les opérations bancaires Pennylane postérieures au point de départ.
  * Renvoie le nombre de sociétés mises à jour.
  */
 function pennylane_maj_tresorerie(): int
@@ -610,6 +620,26 @@ function pennylane_maj_tresorerie(): int
         return 0;
     }
     $pdo = get_db();
+
+    if (pennylane_table_existe('pennylane_comptes')) {
+        $ref = $pdo->prepare(
+            "UPDATE projects SET solde_reference = :s, solde_reference_le = :d
+             WHERE id = :p AND (solde_reference_le IS NULL OR solde_reference_le <= :d2)"
+        );
+        $soldes = $pdo->query(
+            "SELECT ps.project_id, SUM(c.solde) AS solde, MAX(c.releve_le) AS releve_le
+             FROM pennylane_comptes c
+             JOIN pennylane_societes ps ON ps.societe = c.societe AND ps.project_id IS NOT NULL
+             JOIN (SELECT societe_id, MAX(releve_le) AS dernier FROM pennylane_comptes GROUP BY societe_id) d
+               ON d.societe_id = c.societe_id AND d.dernier = c.releve_le
+             GROUP BY ps.project_id"
+        )->fetchAll();
+        foreach ($soldes as $r) {
+            $ref->execute(['s' => round((float) $r['solde'], 2), 'd' => $r['releve_le'],
+                           'd2' => $r['releve_le'], 'p' => (int) $r['project_id']]);
+        }
+    }
+
     $projets = $pdo->query(
         "SELECT DISTINCT p.id, p.solde_reference, p.solde_reference_le
          FROM projects p JOIN pennylane_societes ps ON ps.project_id = p.id
@@ -621,20 +651,59 @@ function pennylane_maj_tresorerie(): int
         [$in, $params] = pl_in(pennylane_noms_projet((int) $projet['id']));
         $params['depuis'] = $projet['solde_reference_le'];
         $r = pl_requete(
-            "SELECT COUNT(*) AS nb, COALESCE(SUM(montant), 0) AS mouvements, MAX(date_operation) AS derniere
+            "SELECT COALESCE(SUM(montant), 0) AS mouvements, MAX(date_operation) AS derniere
              FROM pennylane_transactions WHERE societe IN ($in) AND date_operation > :depuis", $params
         )[0];
-        if ((int) $r['nb'] === 0) {
-            continue;
-        }
         $maj->execute([
             's' => round((float) $projet['solde_reference'] + (float) $r['mouvements'], 2),
-            'd' => $r['derniere'],
+            'd' => $r['derniere'] ?? $projet['solde_reference_le'],
             'p' => (int) $projet['id'],
         ]);
         $n++;
     }
     return $n;
+}
+
+/** Comptes bancaires Pennylane d'une société, au dernier relevé */
+function pennylane_comptes_projet(array $noms): array
+{
+    if (!$noms || !pennylane_table_existe('pennylane_comptes')) {
+        return [];
+    }
+    [$in, $p] = pl_in($noms);
+    return pl_requete(
+        "SELECT c.* FROM pennylane_comptes c
+         WHERE c.societe IN ($in)
+           AND c.releve_le = (SELECT MAX(c2.releve_le) FROM pennylane_comptes c2 WHERE c2.societe_id = c.societe_id)
+         ORDER BY c.solde DESC, c.banque", $p
+    );
+}
+
+/** Soldes de fin de mois d'une société (toutes ses sociétés Pennylane additionnées) */
+function pennylane_tresorerie_mensuelle(array $noms): array
+{
+    if (!$noms || !pennylane_table_existe('pennylane_tresorerie_mensuelle')) {
+        return [];
+    }
+    [$in, $p] = pl_in($noms);
+    return pl_requete(
+        "SELECT mois, SUM(solde_debut) AS solde_debut, SUM(encaissements) AS encaissements,
+                SUM(decaissements) AS decaissements, SUM(solde_fin) AS solde_fin, MAX(mois_en_cours) AS mois_en_cours
+         FROM pennylane_tresorerie_mensuelle WHERE societe IN ($in) GROUP BY mois ORDER BY mois", $p
+    );
+}
+
+/** TVA de la période en cours (montant estimé par Pennylane) */
+function pennylane_tva_projet(array $noms): array
+{
+    if (!$noms || !pennylane_table_existe('pennylane_tva')) {
+        return [];
+    }
+    [$in, $p] = pl_in($noms);
+    return pl_requete(
+        "SELECT t.* FROM pennylane_tva t WHERE t.societe IN ($in)
+           AND t.debut = (SELECT MAX(t2.debut) FROM pennylane_tva t2 WHERE t2.societe_id = t.societe_id)", $p
+    );
 }
 
 /**
@@ -652,6 +721,7 @@ function pennylane_soldes_depart(): array
         $p['nb_operations'] = 0;
         $p['derniere_operation'] = null;
         $noms = pennylane_noms_projet((int) $p['id']);
+        $p['nb_comptes'] = count(pennylane_comptes_projet($noms));
         if (!$noms) {
             continue;
         }
