@@ -5,6 +5,7 @@ require_once __DIR__ . '/../inc/charges.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
 require_once __DIR__ . '/../inc/pennylane.php';
 require_once __DIR__ . '/../inc/objectifs.php';
+require_once __DIR__ . '/../inc/qalimo.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_direction(); // vue consolidée : direction uniquement
 
@@ -92,6 +93,7 @@ foreach ($groupes['sci'] as $p) {
     $lotsLoues += (int) ($p['lots_loues'] ?? 0);
 }
 $tauxOccupation = $lotsTotal > 0 ? $lotsLoues / $lotsTotal * 100 : null;
+$impayesLoyers  = qalimo_impayes_total(); // null tant que Qalimo n'est pas synchronisé
 
 $tousIds  = array_map(fn($p) => (int) $p['id'], $projects);
 $annee    = (int) date('Y');
@@ -157,9 +159,10 @@ require __DIR__ . '/../inc/layout_header.php';
       ]) ?>
   <?= kpi("Taux d'occupation", $tauxOccupation !== null ? pourcent($tauxOccupation) : '—', [
         'icon' => 'home',
-        'foot' => $lotsTotal ? $lotsLoues . ' lots loués sur ' . $lotsTotal
+        'foot' => ($lotsTotal ? $lotsLoues . ' lots loués sur ' . $lotsTotal
                 . ($lotsTotal - $lotsLoues > 0 ? ' · <span class="text-danger fw-semibold">' . ($lotsTotal - $lotsLoues) . ' vacant' . ($lotsTotal - $lotsLoues > 1 ? 's' : '') . '</span>' : '')
-                : 'Aucun lot renseigné',
+                : 'Aucun lot renseigné')
+                . ($impayesLoyers && $impayesLoyers['total'] > 0 ? '<span class="text-danger fw-semibold">' . eur($impayesLoyers['total']) . ' d\'impayés</span>' : ''),
       ]) ?>
   <?= kpi('Résultat net ' . $annee, eur($ytdNet), [
         'icon' => 'trend',

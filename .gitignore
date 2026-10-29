@@ -8,3 +8,5 @@ src/config/sync.local.php
 src/config/caisses.local.php
 src/cron/caisses/test_reel_reponse.json
 mock/*/state*.json
+# Jeton Qalimo — ne jamais versionner
+src/config/qalimo.local.php

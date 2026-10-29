@@ -6,6 +6,7 @@ require_once __DIR__ . '/../inc/daily.php';
 require_once __DIR__ . '/../inc/periodes.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
 require_once __DIR__ . '/../inc/objectifs.php';
+require_once __DIR__ . '/../inc/qalimo.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_login();
 
@@ -100,6 +101,9 @@ if ($estRestaurant) {
 // Immobilier : occupation et trésorerie de la fiche
 $lotsTotal = (int) ($project['lots_total'] ?? 0);
 $lotsLoues = (int) ($project['lots_loues'] ?? 0);
+
+// Gestion locative Qalimo : biens, baux et loyers (null si la société n'a aucun bien relié)
+$immo = qalimo_resume_projet($id);
 
 $metaHtml = [];
 if (!empty($project['siret_siren'])) {
@@ -200,6 +204,89 @@ require __DIR__ . '/../inc/layout_header.php';
   <h6 class="text-muted mb-3">Suivi mensuel</h6>
 <?php endif; ?>
 
+<?php if ($immo):
+  $moisImmo = $immo['mois'];
+  $tauxEnc  = $moisImmo['appele'] > 0 ? $moisImmo['encaisse'] / $moisImmo['appele'] * 100 : null;
+  $vacants  = $immo['total'] - $immo['loues'];
+  $ech      = $immo['echeance']; ?>
+  <h6 class="text-muted mb-3">Immobilier <span class="fw-normal small">· Qalimo<?= $immo['sync'] ? ', mis à jour le ' . date('d/m à H\hi', strtotime($immo['sync'])) : '' ?></span></h6>
+  <div class="kpi-grid">
+    <?= kpi('Occupation', $immo['loues'] . ' <small>/ ' . $immo['total'] . ' lots</small>', [
+          'icon' => 'home', 'hero' => true,
+          'foot' => '<span>' . pourcent($immo['loues'] / $immo['total'] * 100) . '</span>'
+                  . ($vacants ? '<span>' . $vacants . ' vacant' . ($vacants > 1 ? 's' : '') . '</span>' : '<span>Tout est loué</span>')
+                  . ($immo['preavis'] ? '<span>' . $immo['preavis'] . ' préavis</span>' : ''),
+        ]) ?>
+    <?= kpi('Loyers appelés · ' . format_mois_fr((int) date('Y'), (int) date('n')), eur($moisImmo['appele']), [
+          'icon' => 'receipt',
+          'foot' => 'Encaissés <strong class="text-body">' . eur($moisImmo['encaisse']) . '</strong>'
+                  . ($tauxEnc !== null ? '<span>' . pourcent(min($tauxEnc, 999)) . '</span>' : ''),
+        ]) ?>
+    <?= kpi('Impayés locataires', '<span class="' . ($immo['impayes'] > 0 ? 'text-danger' : '') . '">' . eur($immo['impayes']) . '</span>', [
+          'icon' => 'alert',
+          'foot' => $immo['nb_impayes'] ? '<span>' . $immo['nb_impayes'] . ' bail' . ($immo['nb_impayes'] > 1 ? 'x' : '') . ' en retard</span>' : '<span>Aucun retard</span>',
+        ]) ?>
+    <?= kpi('Prochaine échéance de bail', $ech ? date('d/m/Y', strtotime($ech['fin'])) : '—', [
+          'icon' => 'calendar',
+          'foot' => $ech ? '<span>' . h($ech['nom']) . '</span>' : '',
+        ]) ?>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header">
+          Loyers et charges
+          <span class="legend-inline">
+            <span><i style="background:#CBD2DB"></i>Appelés</span>
+            <span><i style="background:#1F5FAD"></i>Encaissés</span>
+          </span>
+        </div>
+        <div class="card-body"><div class="chart-box"><canvas id="chartLoyers"></canvas></div></div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header">Biens <span class="card-hint"><?= $immo['total'] ?> lots</span></div>
+        <div class="card-body p-0" style="max-height:360px;overflow:auto">
+          <table class="table align-middle mb-0">
+            <thead style="position:sticky;top:0;z-index:1">
+              <tr><th>Bien</th><th>Locataire</th><th class="text-end">Loyer + ch.</th><th class="text-end">Échéance</th><th class="text-end">Solde</th></tr>
+            </thead>
+            <tbody>
+              <?php foreach ($immo['lignes'] as $l):
+                $loue = $l['bail_id'] !== null;
+                $solde = $l['solde'] !== null ? (float) $l['solde'] : null; ?>
+                <tr>
+                  <td>
+                    <div class="fw-semibold"><?= h($l['nom']) ?></div>
+                    <div class="small text-muted"><?= h(QALIMO_TYPES[$l['type']] ?? ucfirst((string) $l['type'])) ?><?= $l['surface'] ? ' · ' . (float) $l['surface'] . ' m²' : '' ?></div>
+                  </td>
+                  <td>
+                    <?php if (!$loue): ?>
+                      <span class="text-danger fw-semibold">Vacant</span>
+                    <?php else: ?>
+                      <?= h($l['locataire']) ?>
+                      <?php if ((int) $l['preavis'] === 1): ?><span class="stale">préavis</span><?php endif; ?>
+                    <?php endif; ?>
+                  </td>
+                  <td class="text-end"><?= $loue ? eur((float) $l['loyer_hc'] + (float) $l['charges']) : '<span class="text-muted">' . eur((float) $l['loyer_bien'] + (float) $l['charges_bien']) . '</span>' ?></td>
+                  <td class="text-end"><?= $loue && $l['fin'] ? date('d/m/Y', strtotime($l['fin'])) : '—' ?></td>
+                  <td class="text-end <?= $solde !== null && $solde < -0.009 ? 'text-danger fw-semibold' : 'text-muted' ?>">
+                    <?= $loue && $solde !== null ? eur($solde) : '—' ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h6 class="text-muted mb-3">Suivi mensuel</h6>
+<?php endif; ?>
+
 <div class="kpi-grid">
   <?= kpi('Résultat net · dernier mois', $latestNet === null ? '<span class="text-muted" style="font-size:1rem">Pas de donnée</span>'
         : '<span class="' . ($latestNet >= 0 ? '' : 'text-danger') . '">' . eur($latestNet) . '</span>', [
@@ -219,7 +306,7 @@ require __DIR__ . '/../inc/layout_header.php';
         'icon' => 'layers',
         'foot' => $ytdN1 && $ytdN1['mois'] ? delta(ecart_pct((float) $ytd['charges'], $ytdN1['charges']), true, 'vs N-1') : '',
       ]) ?>
-  <?php if ($lotsTotal > 0): ?>
+  <?php if ($lotsTotal > 0 && !$immo): // avec Qalimo, l'occupation est dans le bloc Immobilier ?>
     <?= kpi('Occupation', $lotsLoues . ' <small>/ ' . $lotsTotal . ' lots</small>', [
           'icon' => 'home',
           'foot' => '<div class="meter ' . ($lotsLoues >= $lotsTotal ? 'ok' : 'warn') . '" style="flex:1;min-width:80px"><span style="width:' . round($lotsLoues / $lotsTotal * 100) . '%"></span></div>'
@@ -334,6 +421,30 @@ require __DIR__ . '/../inc/layout_header.php';
   var cumul = [], s = 0, mois = '<?= date('Y-m') ?>';
   serie.forEach(function (j) { if (j.date.slice(0, 7) === mois) { s += j.ca; cumul.push(s); } });
   ADHUB.spark('sparkMois', cumul.length > 1 ? cumul : [0, s], c.blue);
+})();
+</script>
+<?php endif; ?>
+
+<?php if ($immo): ?>
+<script>
+(function () {
+  var m = <?= json_encode(array_map(fn($k, $v) => ['mois' => mois_court($k . '-01'), 'appele' => $v['appele'], 'encaisse' => $v['encaisse']], array_keys($immo['mensuel']), $immo['mensuel']), JSON_UNESCAPED_UNICODE) ?>;
+  // Les mois d'avant le premier mouvement (historique pas encore dans Qalimo) sont retirés
+  while (m.length > 3 && !m[0].appele && !m[0].encaisse) m.shift();
+  new Chart(document.getElementById('chartLoyers'), {
+    type: 'bar',
+    data: {
+      labels: m.map(function (x) { return x.mois; }),
+      datasets: [
+        { label: 'Appelés', data: m.map(function (x) { return x.appele; }), backgroundColor: '#CBD2DB', maxBarThickness: 18 },
+        { label: 'Encaissés', data: m.map(function (x) { return x.encaisse; }), backgroundColor: ADHUB.colors.blue, maxBarThickness: 18 }
+      ]
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (x) { return ' ' + x.dataset.label + ' : ' + ADHUB.eur(x.raw); } } } },
+      scales: { x: { grid: { display: false } }, y: { ticks: { callback: function (v) { return ADHUB.eurShort(v); } } } }
+    }
+  });
 })();
 </script>
 <?php endif; ?>
