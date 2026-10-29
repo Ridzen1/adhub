@@ -161,6 +161,21 @@ restaurant voient la jauge et le bilan.</p>
 HTML,
     ],
     [
+        'id' => 'immobilier', 'icon' => 'home', 'pour' => 'tous',
+        'titre' => "SCI : loyers et occupation",
+        'html' => <<<HTML
+<p>Le tableau de bord d'une SCI gérée dans Qalimo commence par un bloc <strong>Immobilier</strong>, mis à jour chaque nuit :</p>
+<ul>
+  <li><strong>Occupation</strong> : lots loués sur le total (logements, locaux, parkings), vacants et préavis en cours.</li>
+  <li><strong>Loyers appelés</strong> du mois et ce qui a déjà été <strong>encaissé</strong>.</li>
+  <li><strong>Impayés locataires</strong> : somme des soldes négatifs des baux (le dépôt de garantie n'est pas compté).</li>
+  <li><strong>Prochaine échéance de bail</strong>, puis le détail bien par bien et l'historique des loyers sur 12 mois.</li>
+</ul>
+<p class="guide-note">Tout se corrige dans Qalimo, jamais dans ADHUB : un paiement ou un bail saisi dans Qalimo
+apparaît ici le lendemain matin.</p>
+HTML,
+    ],
+    [
         'id' => 'donnees', 'icon' => 'clock', 'pour' => 'tous',
         'titre' => "D'où viennent les chiffres",
         'html' => <<<HTML
@@ -170,7 +185,8 @@ HTML,
     <tr><td>Ventes des restaurants</td><td>Caisses L'Addition et Popina</td><td>Automatique, chaque nuit vers 5 h 30 (la journée de la veille)</td></tr>
     <tr><td>Factures fournisseurs, banque, trésorerie</td><td>Export Pennylane déposé par la direction</td><td>À chaque nouvel export</td></tr>
     <tr><td>Revenus et charges du mois</td><td>Calculés à partir des caisses et de Pennylane</td><td>Après chaque synchro ou import</td></tr>
-    <tr><td>Logements loués, valeur, surface</td><td>Fiche société</td><td>À la main, quand ça change</td></tr>
+    <tr><td>Biens, baux, loyers et impayés des SCI</td><td>Qalimo (gestion locative)</td><td>Automatique, chaque nuit vers 6 h 30</td></tr>
+    <tr><td>Valeur, surface, emprunt</td><td>Fiche société</td><td>À la main, quand ça change</td></tr>
     <tr><td>Documents</td><td>OneDrive</td><td>Directement dans OneDrive</td></tr>
   </tbody>
 </table>

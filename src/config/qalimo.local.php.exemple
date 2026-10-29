@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * MODÈLE DE CONFIGURATION QALIMO — À COPIER EN qalimo.local.php.
+ *
+ * Contient le jeton d'accès : ne jamais versionner ni envoyer ce fichier.
+ * Sur o2switch, après l'avoir créé : droits 600 (lisible par le compte seul).
+ *
+ * Le jeton se crée dans Qalimo : Mon compte → Agents IA (MCP). Il commence par qmcp_.
+ * Il a les mêmes droits que le compte qui l'a créé : utiliser un compte qui voit toutes les SCI.
+ *
+ * Chaque profil bailleur Qalimo est relié automatiquement à la société ADHUB du même nom.
+ * Le numéro du profil s'affiche au lancement de cron/qalimo/qalimo_sync.php.
+ */
+
+return [
+    'token' => 'qmcp_A_REMPLACER',
+
+    // Profils Qalimo à ne pas reprendre dans ADHUB (ex. 9755 => Arnaud DUVIVIER particulier)
+    'ignorer' => [9755],
+
+    // Correspondances forcées quand le nom ne suffit pas : [numéro du profil Qalimo => id de la société ADHUB]
+    'societes' => [/* 9699 => 18 */],
+];

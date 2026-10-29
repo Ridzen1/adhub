@@ -291,6 +291,40 @@ dans **Administration → Import Pennylane** (migration `013_pennylane.sql`).
   flux bancaires, opérations à justifier, principaux fournisseurs, factures ouvertes.
   La vue d'ensemble affiche le total à payer et les sociétés avec des factures échues.
 
+## Immobilier : synchronisation Qalimo
+
+Les SCI sont gérées dans Qalimo (gestion locative). `cron/qalimo/qalimo_sync.php` lit chaque nuit
+son API officielle, **en lecture seule** (GET uniquement) : profils bailleurs, biens actifs, baux
+actifs et écritures de chaque bail. Migration : `database/018_qalimo.sql`.
+
+- Chaque profil bailleur est relié à la société ADHUB du même nom (même rapprochement que Pennylane,
+  restaurants exclus : « SCI VALENTINO » → SCI LE VALENTINO). Une correspondance peut être forcée
+  dans `societes` de la config, un profil écarté dans `ignorer`.
+- La synchro met à jour `lots_total` / `lots_loues` des sociétés reliées : la vue d'ensemble et le
+  tableau de bord n'ont plus à être remplis à la main. Un lot = un bien actif, loué s'il a un bail actif.
+- Le tableau de bord d'une société reliée gagne un bloc **Immobilier** : occupation, loyers appelés
+  et encaissés du mois, impayés, prochaine échéance de bail, liste des biens, loyers sur 12 mois.
+  La vue d'ensemble affiche le total des impayés.
+- Convention Qalimo : appel négatif, paiement positif. Le solde d'un locataire = somme de ses
+  écritures hors dépôt de garantie (`appel_dg`, `paiement_dg`) ; négatif = impayé.
+
+### Installation
+
+1. Passer `database/018_qalimo.sql`.
+2. Copier `src/config/qalimo.local.php.exemple` en `config/qalimo.local.php` (`chmod 600`, jamais
+   versionné) et y mettre le jeton créé dans Qalimo : **Mon compte → Agents IA (MCP)** (`qmcp_…`).
+3. Vérifier l'accès : `php cron/qalimo/test_reel_qalimo.php`, puis lancer `php cron/qalimo/qalimo_sync.php`
+   et contrôler les correspondances affichées.
+4. Tâche cron cPanel :
+
+```
+30 6 * * * /usr/local/bin/php ~/adhub.fr/cron/qalimo/qalimo_sync.php >/dev/null 2>&1
+```
+
+Chaque passage est tracé dans `sync_runs` (source `qalimo`). Une synchro interrompue ne touche
+pas aux données de la veille (tout est remplacé en une transaction). Faux serveur pour tester :
+`php -S 127.0.0.1:8097 mock/qalimo/router.php` (jeton `qmcp_test`, `'api' => 'http://127.0.0.1:8097/api/v1'`).
+
 ## Objectifs de CA des restaurants
 
 Migration : `database/016_objectifs.sql` (table `objectifs_ca`). Sans elle, les pages s'affichent sans objectifs.
