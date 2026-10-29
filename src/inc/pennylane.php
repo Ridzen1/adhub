@@ -195,6 +195,7 @@ function pennylane_importer_xlsx(string $binaire, string $nomFichier, ?int $user
 
     $res['societes'] = array_keys($res['societes']);
     pennylane_relier_automatiquement();
+    pennylane_retirer_factures_clients_restaurants();
     pennylane_alimenter_suivi_mensuel();
     pennylane_maj_tresorerie();
     return $res;
@@ -293,6 +294,24 @@ function pennylane_definir_correspondance(string $societe, ?int $projectId): voi
 {
     get_db()->prepare("UPDATE pennylane_societes SET project_id = :p WHERE societe = :s")
         ->execute(['p' => $projectId ?: null, 's' => $societe]);
+}
+
+/**
+ * Supprime les factures clients Pennylane des restaurants : leur CA vient des caisses,
+ * et ces factures (souvent quelques ventes isolées) faussaient l'onglet Comptabilité.
+ * Les factures fournisseurs sont gardées. Appelé après chaque import, changement de
+ * correspondance, et à l'ouverture des pages concernées (cas du script SQL passé dans
+ * phpMyAdmin, qui ne passe pas par l'import). Renvoie le nombre de factures retirées.
+ */
+function pennylane_retirer_factures_clients_restaurants(): int
+{
+    return get_db()->exec(
+        "DELETE f FROM pennylane_factures f
+         JOIN pennylane_societes ps ON ps.societe = f.societe
+         JOIN projects p ON p.id = ps.project_id
+         JOIN project_types pt ON pt.id = p.project_type_id
+         WHERE f.sens = 'client' AND pt.code = 'restauration_exploitation'"
+    );
 }
 
 /** Noms Pennylane reliés à une société ADHUB */
