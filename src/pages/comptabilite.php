@@ -21,11 +21,9 @@ if (!$project) {
 require_project_access($id, 'dashboard');
 
 $noms = pennylane_noms_projet($id);
-// Restaurant : le CA vient des caisses, les factures clients Pennylane ne sont ni gardées ni affichées
+// Restaurant : les factures fournisseurs ne sont pas montrées (elles restent comptées dans les charges
+// mensuelles du tableau de bord) ; seuls les comptes et la banque apparaissent ici
 $estRestaurant = is_restaurant($project);
-if ($estRestaurant) {
-    pennylane_retirer_factures_clients_restaurants();
-}
 
 [$inA, $pA] = pl_in($noms, 'a');
 [$inB, $pB] = pl_in($noms, 'b');
@@ -44,7 +42,7 @@ $s        = pennylane_synthese($noms, $du, $au);
 $parMois  = pennylane_par_mois($noms, $du, $annee < (int) date('Y') ? $au : date('Y-m-d'));
 $top      = pennylane_top_fournisseurs($noms, $du, $au, 8);
 $ouvertes = pennylane_factures_ouvertes($noms, 'fournisseur', 40);
-$aEncaisser = $estRestaurant ? [] : pennylane_factures_ouvertes($noms, 'client', 20);
+$aEncaisser = pennylane_factures_ouvertes($noms, 'client', 20);
 $operations = pennylane_dernieres_transactions($noms, 25);
 $import   = pennylane_dernier_import();
 $comptes  = pennylane_comptes_projet($noms);
@@ -94,7 +92,15 @@ require __DIR__ . '/../inc/layout_header.php';
   </div></div>
 <?php else: ?>
 
+<?php if ($estRestaurant && !$avecBanque && !$comptes && !$tresoMois): ?>
+  <div class="card"><div class="card-body empty-state">
+    Pas de compte bancaire de <?= h($project['name']) ?> dans l'export Pennylane.
+    Les ventes du restaurant sont suivies par la caisse, dans le tableau de bord.
+  </div></div>
+<?php else: ?>
+
 <div class="kpi-grid">
+  <?php if (!$estRestaurant): ?>
   <?= kpi('Fournisseurs à payer', eur($f['reste']), [
         'hero' => true, 'icon' => 'receipt',
         'foot' => '<span>' . $f['nb_reste'] . ' facture' . ($f['nb_reste'] > 1 ? 's' : '') . '</span>'
@@ -104,6 +110,7 @@ require __DIR__ . '/../inc/layout_header.php';
         'icon' => 'layers',
         'foot' => $f['nb'] . ' facture' . ($f['nb'] > 1 ? 's' : '') . ' fournisseurs',
       ]) ?>
+  <?php endif; ?>
   <?php if ($avecBanque): ?>
     <?= kpi('Encaissements ' . $annee, eur($s['encaissements']), [
           'icon' => 'bank',
@@ -118,7 +125,8 @@ require __DIR__ . '/../inc/layout_header.php';
           'icon' => 'alert', 'class' => $s['a_justifier'] ? 'kpi-warn' : '',
           'foot' => $s['nb_transactions'] ? pourcent($s['a_justifier'] / $s['nb_transactions'] * 100) . ' des opérations sans justificatif' : '',
         ]) ?>
-  <?php elseif ($estRestaurant || !$s['client']['nb']): $moisActifs = count(array_filter($parMois, fn($m) => $m['achats'] > 0)) ?: 1; ?>
+  <?php elseif ($estRestaurant): ?>
+  <?php elseif (!$s['client']['nb']): $moisActifs = count(array_filter($parMois, fn($m) => $m['achats'] > 0)) ?: 1; ?>
     <?= kpi('Factures en retard', (string) $f['nb_echues'], [
           'icon' => 'alert', 'class' => $f['nb_echues'] ? 'kpi-warn' : '',
           'foot' => $f['nb_echues'] ? 'échéance dépassée, non soldées' : 'Aucune échéance dépassée',
@@ -204,20 +212,23 @@ require __DIR__ . '/../inc/layout_header.php';
 </div>
 <?php endif; ?>
 
+<?php if (!$estRestaurant || $avecBanque): ?>
 <div class="card mb-4">
   <div class="card-header">
-    <?= $avecBanque ? 'Flux bancaires et achats par mois' : 'Achats par mois' ?>
+    <?= $estRestaurant ? 'Flux bancaires par mois' : ($avecBanque ? 'Flux bancaires et achats par mois' : 'Achats par mois') ?>
     <span class="legend-inline">
       <?php if ($avecBanque): ?>
         <span><i style="background:#0F7B55"></i>Encaissements</span>
         <span><i style="background:#C2362F"></i>Décaissements</span>
       <?php endif; ?>
-      <span><i style="background:<?= $avecBanque ? '#0E1C2B' : '#1F5FAD' ?>"></i>Achats HT</span>
+      <?php if (!$estRestaurant): ?><span><i style="background:<?= $avecBanque ? '#0E1C2B' : '#1F5FAD' ?>"></i>Achats HT</span><?php endif; ?>
     </span>
   </div>
   <div class="card-body"><div class="chart-box"><canvas id="chartCompta"></canvas></div></div>
 </div>
+<?php endif; ?>
 
+<?php if (!$estRestaurant): ?>
 <div class="row g-4 mb-4">
   <div class="col-xl-5">
     <div class="card h-100">
@@ -277,8 +288,9 @@ require __DIR__ . '/../inc/layout_header.php';
     </div>
   </div>
 </div>
+<?php endif; ?>
 
-<?php if ($aEncaisser): ?>
+<?php if ($aEncaisser && !$estRestaurant): ?>
 <div class="card mb-4">
   <div class="card-header">Factures clients à encaisser</div>
   <div class="card-body p-0">
@@ -327,10 +339,11 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php endif; ?>
 
 <p class="text-muted small">
-  Chiffres tirés de l'export Pennylane, tels que saisis en comptabilité. Un « reste à payer » peut
-  correspondre à une facture déjà réglée mais pas encore rapprochée de sa banque dans Pennylane.
+  Chiffres tirés de l'export Pennylane, tels que saisis en comptabilité.<?php if (!$estRestaurant): ?> Un « reste à payer » peut
+  correspondre à une facture déjà réglée mais pas encore rapprochée de sa banque dans Pennylane.<?php endif; ?>
 </p>
 
+<?php if (!$estRestaurant || $avecBanque): ?>
 <script>
 (function () {
   var mois = <?= json_encode($parMois) ?>;
@@ -341,7 +354,9 @@ require __DIR__ . '/../inc/layout_header.php';
   <?php if ($avecBanque): ?>
   datasets.push({ type: 'bar', label: 'Encaissements', data: mois.map(function (m) { return m.encaissements; }), backgroundColor: c.green, maxBarThickness: 22, order: 1 });
   datasets.push({ type: 'bar', label: 'Décaissements', data: mois.map(function (m) { return m.decaissements; }), backgroundColor: c.red, maxBarThickness: 22, order: 1 });
+  <?php if (!$estRestaurant): ?>
   datasets.push({ type: 'line', label: 'Achats HT', data: mois.map(function (m) { return m.achats; }), borderColor: c.navy, backgroundColor: c.navy, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, tension: .3, order: 0 });
+  <?php endif; ?>
   <?php else: ?>
   datasets.push({ type: 'bar', label: 'Achats HT', data: mois.map(function (m) { return m.achats; }), backgroundColor: c.blue, maxBarThickness: 28 });
   <?php endif; ?>
@@ -354,6 +369,8 @@ require __DIR__ . '/../inc/layout_header.php';
   });
 })();
 </script>
+<?php endif; ?>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>

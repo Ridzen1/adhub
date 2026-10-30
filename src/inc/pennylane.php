@@ -195,7 +195,6 @@ function pennylane_importer_xlsx(string $binaire, string $nomFichier, ?int $user
 
     $res['societes'] = array_keys($res['societes']);
     pennylane_relier_automatiquement();
-    pennylane_retirer_factures_clients_restaurants();
     pennylane_alimenter_suivi_mensuel();
     pennylane_maj_tresorerie();
     return $res;
@@ -294,24 +293,6 @@ function pennylane_definir_correspondance(string $societe, ?int $projectId): voi
 {
     get_db()->prepare("UPDATE pennylane_societes SET project_id = :p WHERE societe = :s")
         ->execute(['p' => $projectId ?: null, 's' => $societe]);
-}
-
-/**
- * Supprime les factures clients Pennylane des restaurants : leur CA vient des caisses,
- * et ces factures (souvent quelques ventes isolées) faussaient l'onglet Comptabilité.
- * Les factures fournisseurs sont gardées. Appelé après chaque import, changement de
- * correspondance, et à l'ouverture des pages concernées (cas du script SQL passé dans
- * phpMyAdmin, qui ne passe pas par l'import). Renvoie le nombre de factures retirées.
- */
-function pennylane_retirer_factures_clients_restaurants(): int
-{
-    return get_db()->exec(
-        "DELETE f FROM pennylane_factures f
-         JOIN pennylane_societes ps ON ps.societe = f.societe
-         JOIN projects p ON p.id = ps.project_id
-         JOIN project_types pt ON pt.id = p.project_type_id
-         WHERE f.sens = 'client' AND pt.code = 'restauration_exploitation'"
-    );
 }
 
 /** Noms Pennylane reliés à une société ADHUB */
@@ -475,7 +456,7 @@ function pennylane_dernieres_transactions(array $noms, int $limite = 30): array
          ORDER BY date_operation DESC, id DESC LIMIT " . max(1, $limite), $p);
 }
 
-/** Pour la vue d'ensemble : restes à payer et flux par société ADHUB */
+/** Pour la vue d'ensemble : restes à payer par société ADHUB (hors restaurants, dont les factures fournisseurs ne sont pas montrées) */
 function pennylane_par_projet(string $du, string $au): array
 {
     $jour = date('Y-m-d');
@@ -485,7 +466,9 @@ function pennylane_par_projet(string $du, string $au): array
                 SUM(CASE WHEN f.avoir = 1 THEN -f.reste_a_payer ELSE f.reste_a_payer END) AS reste,
                 SUM(CASE WHEN f.echeance IS NULL OR f.echeance >= '$jour' THEN 0 WHEN f.avoir = 1 THEN -f.reste_a_payer ELSE f.reste_a_payer END) AS echu
          FROM pennylane_factures f JOIN pennylane_societes ps ON ps.societe = f.societe
-         WHERE ps.project_id IS NOT NULL AND f.sens = 'fournisseur' AND f.reste_a_payer > 0.009
+         JOIN projects p ON p.id = ps.project_id
+         JOIN project_types pt ON pt.id = p.project_type_id
+         WHERE f.sens = 'fournisseur' AND f.reste_a_payer > 0.009 AND pt.code <> 'restauration_exploitation'
          GROUP BY ps.project_id"
     )->fetchAll() as $r) {
         $out[(int) $r['project_id']] = ['reste' => (float) $r['reste'], 'echu' => (float) $r['echu']];
