@@ -21,9 +21,11 @@ if (!$project) {
 require_project_access($id, 'dashboard');
 
 $noms = pennylane_noms_projet($id);
-// Restaurant : les factures fournisseurs ne sont pas montrées (elles restent comptées dans les charges
-// mensuelles du tableau de bord) ; seuls les comptes et la banque apparaissent ici
+// Restaurant : les factures fournisseurs ne sont ni gardées ni montrées ; seuls les comptes et la banque apparaissent ici
 $estRestaurant = is_restaurant($project);
+if ($estRestaurant) {
+    pennylane_retirer_factures_fournisseurs_restaurants();
+}
 
 [$inA, $pA] = pl_in($noms, 'a');
 [$inB, $pB] = pl_in($noms, 'b');
