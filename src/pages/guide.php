@@ -292,8 +292,8 @@ HTML,
   <li>Vérifiez la correspondance entre les sociétés Pennylane et les sociétés ADHUB, et choisissez
       celles qui sont restées sans correspondance.</li>
 </ol>
-<p class="guide-note">Les factures clients des restaurants ne sont pas gardées : leur chiffre d'affaires
-vient des caisses. Leurs factures fournisseurs, elles, alimentent les charges comme pour les autres sociétés.</p>
+<p class="guide-note">Les factures fournisseurs des restaurants ne sont pas gardées. Leurs charges
+mensuelles se saisissent à la main dans le tableau de bord si besoin.</p>
 <p class="guide-note">Le tableau de bord, la trésorerie et l'onglet Comptabilité se mettent à jour juste après l'import.
 Un export par mois, vers le 10, suffit à garder des chiffres fiables.</p>
 HTML,

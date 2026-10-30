@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ((array) ($_POST['projet'] ?? []) as $societe => $projectId) {
             pennylane_definir_correspondance((string) $societe, (int) $projectId ?: null);
         }
-        pennylane_retirer_factures_clients_restaurants();
+        pennylane_retirer_factures_fournisseurs_restaurants();
         pennylane_alimenter_suivi_mensuel();
         pennylane_maj_tresorerie();
         header('Location: /pages/admin_pennylane.php?enregistre=1');
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Données arrivées par le script SQL (phpMyAdmin) : on les rattache aussi,
 // et la trésorerie est recalculée avec les nouvelles opérations bancaires
 pennylane_relier_automatiquement();
-pennylane_retirer_factures_clients_restaurants();
+pennylane_retirer_factures_fournisseurs_restaurants();
 pennylane_maj_tresorerie();
 
 $correspondances = pennylane_correspondances();
@@ -96,8 +96,7 @@ require __DIR__ . '/../inc/layout_header.php';
         </form>
         <p class="text-muted small mt-3 mb-0">
           Le fichier doit contenir les feuilles « Factures fournisseurs », « Factures clients » et
-          « Transactions bancaires ». Les factures clients des restaurants sont écartées : leur
-          chiffre d'affaires vient des caisses. Réimporter un export plus récent met les lignes à jour, sans doublon :
+          « Transactions bancaires ». Les factures fournisseurs des restaurants sont écartées. Réimporter un export plus récent met les lignes à jour, sans doublon :
           chaque ligne est reconnue par son identifiant Pennylane.
           Le script SQL généré avec l'export peut aussi être passé dans phpMyAdmin, le résultat est le même.
         </p>
