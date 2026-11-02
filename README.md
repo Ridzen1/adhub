@@ -339,6 +339,19 @@ Migration : `database/016_objectifs.sql` (table `objectifs_ca`). Sans elle, les 
 - Jamais de classement ni de comparaison entre restaurants : chacun face à son propre objectif.
 - Code : `src/inc/objectifs.php`, `src/pages/objectifs.php`.
 
+## Boîte à idées (problèmes et améliorations)
+
+Migration : `database/020_boite_a_idees.sql` (table `retours`). Sans elle, les pages affichent un message d'activation.
+
+- Tout utilisateur connecté envoie un message depuis **Une idée ?** dans la barre du haut (ou le menu du compte) :
+  type Problème ou Amélioration, sujet, détails. La page d'où il venait est jointe pour aider à reproduire.
+- Chacun ne voit que **ses propres messages**, avec leur statut et la réponse éventuelle de la direction.
+- La direction traite tout dans **Administration → Boîte à idées** : filtres À traiter / Nouveaux / En cours /
+  Traités / Tous et par type, réponse à l'auteur, changement de statut, suppression (spam, doublon).
+  Une pastille dorée sur « Administration » compte les nouveaux messages.
+- Pas de notification par e-mail pour l'instant : la pastille sert d'alerte.
+- Code : `src/inc/retours.php`, `src/pages/remonter.php`, `src/pages/admin_retours.php`.
+
 ## Prochaine étape
 
 - Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
