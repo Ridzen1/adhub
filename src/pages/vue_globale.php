@@ -11,7 +11,7 @@ require_direction(); // vue consolidée : direction uniquement
 
 // Un export Pennylane passé par phpMyAdmin n'a pas déclenché le calcul : on le refait ici
 pennylane_relier_automatiquement();
-pennylane_retirer_factures_clients_restaurants();
+pennylane_retirer_factures_fournisseurs_restaurants();
 pennylane_maj_tresorerie();
 
 $projects = get_global_overview();

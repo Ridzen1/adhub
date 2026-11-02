@@ -195,7 +195,7 @@ function pennylane_importer_xlsx(string $binaire, string $nomFichier, ?int $user
 
     $res['societes'] = array_keys($res['societes']);
     pennylane_relier_automatiquement();
-    pennylane_retirer_factures_clients_restaurants();
+    pennylane_retirer_factures_fournisseurs_restaurants();
     pennylane_alimenter_suivi_mensuel();
     pennylane_maj_tresorerie();
     return $res;
@@ -297,21 +297,27 @@ function pennylane_definir_correspondance(string $societe, ?int $projectId): voi
 }
 
 /**
- * Supprime les factures clients Pennylane des restaurants : leur CA vient des caisses,
- * et ces factures (souvent quelques ventes isolées) faussaient l'onglet Comptabilité.
- * Les factures fournisseurs sont gardées. Appelé après chaque import, changement de
- * correspondance, et à l'ouverture des pages concernées (cas du script SQL passé dans
- * phpMyAdmin, qui ne passe pas par l'import). Renvoie le nombre de factures retirées.
+ * Efface les factures fournisseurs Pennylane des restaurants (choix de la direction :
+ * restes à payer et retards ne doivent pas apparaître) et remet à zéro les charges que
+ * l'outil en avait tirées dans le suivi mensuel. Une saisie à la main n'est pas touchée.
+ * Appelé après chaque import, changement de correspondance, et à l'ouverture des pages
+ * concernées (cas du script SQL passé dans phpMyAdmin). Renvoie le nombre de factures effacées.
  */
-function pennylane_retirer_factures_clients_restaurants(): int
+function pennylane_retirer_factures_fournisseurs_restaurants(): int
 {
-    return get_db()->exec(
+    $pdo = get_db();
+    $restos = "SELECT p.id FROM projects p JOIN project_types pt ON pt.id = p.project_type_id
+               WHERE pt.code = 'restauration_exploitation'";
+    $n = $pdo->exec(
         "DELETE f FROM pennylane_factures f
          JOIN pennylane_societes ps ON ps.societe = f.societe
-         JOIN projects p ON p.id = ps.project_id
-         JOIN project_types pt ON pt.id = p.project_type_id
-         WHERE f.sens = 'client' AND pt.code = 'restauration_exploitation'"
+         WHERE f.sens = 'fournisseur' AND ps.project_id IN ($restos)"
     );
+    $pdo->prepare(
+        "UPDATE financial_entries SET charges = 0
+         WHERE notes = :auto AND charges <> 0 AND project_id IN ($restos)"
+    )->execute(['auto' => PL_SUIVI_AUTO]);
+    return $n;
 }
 
 /** Noms Pennylane reliés à une société ADHUB */
@@ -475,7 +481,7 @@ function pennylane_dernieres_transactions(array $noms, int $limite = 30): array
          ORDER BY date_operation DESC, id DESC LIMIT " . max(1, $limite), $p);
 }
 
-/** Pour la vue d'ensemble : restes à payer et flux par société ADHUB */
+/** Pour la vue d'ensemble : restes à payer par société ADHUB (hors restaurants, dont les factures fournisseurs ne sont pas montrées) */
 function pennylane_par_projet(string $du, string $au): array
 {
     $jour = date('Y-m-d');
@@ -485,7 +491,9 @@ function pennylane_par_projet(string $du, string $au): array
                 SUM(CASE WHEN f.avoir = 1 THEN -f.reste_a_payer ELSE f.reste_a_payer END) AS reste,
                 SUM(CASE WHEN f.echeance IS NULL OR f.echeance >= '$jour' THEN 0 WHEN f.avoir = 1 THEN -f.reste_a_payer ELSE f.reste_a_payer END) AS echu
          FROM pennylane_factures f JOIN pennylane_societes ps ON ps.societe = f.societe
-         WHERE ps.project_id IS NOT NULL AND f.sens = 'fournisseur' AND f.reste_a_payer > 0.009
+         JOIN projects p ON p.id = ps.project_id
+         JOIN project_types pt ON pt.id = p.project_type_id
+         WHERE f.sens = 'fournisseur' AND f.reste_a_payer > 0.009 AND pt.code <> 'restauration_exploitation'
          GROUP BY ps.project_id"
     )->fetchAll() as $r) {
         $out[(int) $r['project_id']] = ['reste' => (float) $r['reste'], 'echu' => (float) $r['echu']];
@@ -523,7 +531,7 @@ function pl_est_un_revenu(string $libelle, array $nomsGroupe): bool
 
 /**
  * Remplit le suivi mensuel (financial_entries) de chaque société reliée à Pennylane :
- *  - charges  = factures fournisseurs HT du mois (avoirs déduits) ;
+ *  - charges  = factures fournisseurs HT du mois (avoirs déduits), sauf restaurants (aucune) ;
  *  - revenus  = CA HT des caisses pour un restaurant, encaissements bancaires sinon
  *               (Pennylane ne contient presque pas de factures clients).
  * Appelé après chaque import Pennylane, changement de correspondance et synchro caisse.
