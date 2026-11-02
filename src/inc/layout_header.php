@@ -10,6 +10,7 @@
  */
 require_once __DIR__ . '/access.php';
 require_once __DIR__ . '/ui.php';
+require_once __DIR__ . '/retours.php';
 
 $navUser     = current_user();
 $navProjects = get_visible_projects();
@@ -24,7 +25,7 @@ $navPage = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
 $currentProjectId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $pagesSociete = ['project_dashboard', 'project_detail', 'project_documents', 'charges', 'saisie_quotidienne',
                  'evolution', 'analyse_caisse', 'import_caisse', 'comptabilite', 'objectifs'];
-$pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses', 'admin_pennylane', 'admin_tresorerie'];
+$pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses', 'admin_pennylane', 'admin_tresorerie', 'admin_retours'];
 $enSociete    = in_array($navPage, $pagesSociete, true) && $currentProjectId > 0;
 
 $nomSocieteCourante = null;
@@ -33,6 +34,9 @@ foreach ($navProjects as $np) {
         $nomSocieteCourante = $np['name'];
     }
 }
+
+// Boîte à idées : nombre de messages non lus, affiché à la direction seule
+$navRetoursNouveaux = is_direction() ? retours_nouveaux() : 0;
 
 // Version des fichiers statiques : force le rechargement après une mise à jour
 $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
@@ -111,6 +115,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
         <div class="dropdown">
           <button type="button" class="<?= in_array($navPage, $pagesAdmin, true) ? 'active' : '' ?>" data-bs-toggle="dropdown" aria-expanded="false">
             <?= icon('settings', 16) ?> Administration
+            <?php if ($navRetoursNouveaux > 0): ?><span class="hub-pill" title="Nouveaux messages dans la boîte à idées"><?= $navRetoursNouveaux ?></span><?php endif; ?>
             <span class="hub-caret"><?= icon('chevron', 14) ?></span>
           </button>
           <div class="dropdown-menu">
@@ -119,6 +124,10 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
             <a class="dropdown-item <?= $navPage === 'admin_caisses' ? 'active' : '' ?>" href="/pages/admin_caisses.php">Caisses</a>
             <a class="dropdown-item <?= $navPage === 'admin_pennylane' ? 'active' : '' ?>" href="/pages/admin_pennylane.php">Import Pennylane</a>
             <a class="dropdown-item <?= $navPage === 'admin_tresorerie' ? 'active' : '' ?>" href="/pages/admin_tresorerie.php">Trésorerie</a>
+            <a class="dropdown-item d-flex align-items-center justify-content-between gap-3 <?= $navPage === 'admin_retours' ? 'active' : '' ?>" href="/pages/admin_retours.php">
+              Boîte à idées
+              <?php if ($navRetoursNouveaux > 0): ?><span class="hub-pill"><?= $navRetoursNouveaux ?></span><?php endif; ?>
+            </a>
             <div class="dropdown-divider"></div>
             <a class="dropdown-item <?= $navPage === 'admin_logs' ? 'active' : '' ?>" href="/pages/admin_logs.php">Journal des accès</a>
           </div>
@@ -127,6 +136,10 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 
       <a href="/pages/guide.php" class="<?= $navPage === 'guide' ? 'active' : '' ?>">
         <?= icon('file', 16) ?> Guide
+      </a>
+
+      <a href="/pages/remonter.php" class="<?= $navPage === 'remonter' ? 'active' : '' ?>" title="Signaler un problème ou proposer une amélioration">
+        <?= icon('bulb', 16) ?> Une idée ?
       </a>
     </nav>
 
@@ -144,6 +157,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
         <div class="dropdown-divider"></div>
         <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/mon_compte.php"><?= icon('users', 15) ?> Mon compte</a>
         <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/double_authentification.php"><?= icon('key', 15) ?> Double authentification</a>
+        <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/remonter.php"><?= icon('message', 15) ?> Mes messages à la direction</a>
         <a class="dropdown-item d-flex align-items-center gap-2" href="/pages/logout.php"><?= icon('logout', 15) ?> Déconnexion</a>
       </div>
     </div>
