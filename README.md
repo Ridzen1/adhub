@@ -381,6 +381,12 @@ Migration : `database/021_comptes_restaurants.sql` (relançable sans doublon).
   et ne peuvent pas se connecter. La direction définit un mot de passe provisoire via **Modifier** dans
   Administration → Utilisateurs. Les e-mails sont les vrais (relancer la migration remplace d'anciennes adresses provisoires).
 
+Migration : `database/022_comptes_lecture_seule.sql` (relançable sans doublon).
+
+- Le compte de départ `arnaud@example.com` (Direction) est celui de Kader : il devient `ryad.haddad10@gmail.com` / « Ryad Haddad ».
+- Arnaud Duvivier (`scihoteldieu@gmail.com`) et un compte de test de Kader (`ryad.haddad10+lecture@gmail.com`) :
+  Gestionnaire, lecture seule sur toutes les sociétés existantes au lancement. Mots de passe à définir via **Modifier**.
+
 ## Prochaine étape
 
 - Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
