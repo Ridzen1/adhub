@@ -273,6 +273,52 @@ function caisse_definir_famille(string $source, string $categorie, string $famil
     )->execute(['s' => $source, 'c' => $categorie, 'f' => $famille, 'f2' => $famille]);
 }
 
+/**
+ * Recalcule ca_solide / ca_liquide de toutes les journées importées des caisses
+ * (source 'api'), avec le classement actuel. Les saisies manuelles et les imports
+ * d'export ne sont pas touchés. Renvoie le nombre de journées mises à jour.
+ */
+function caisse_recalculer_familles(): int
+{
+    $db = get_db();
+    $maj = $db->prepare(
+        "UPDATE daily_entries SET ca_solide = :s, ca_liquide = :l
+         WHERE project_id = :pid AND entry_date = :jour AND source = 'api'"
+    );
+    $nb = 0;
+    $projets = $db->query("SELECT DISTINCT project_id FROM caisse_etablissements")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($projets as $pid) {
+        $bornes = caisse_requete(
+            "SELECT MIN(entry_date) AS du, MAX(entry_date) AS au FROM daily_entries
+             WHERE project_id = :pid AND source = 'api'", ['pid' => $pid]
+        )[0];
+        if (!$bornes['du']) {
+            continue;
+        }
+        [$v, $p] = caisse_articles_sql((int) $pid, $bornes['du'], $bornes['au']);
+        $jours = [];
+        foreach (caisse_requete(
+            "SELECT v.jour, v.source, v.categorie, SUM(v.ttc) AS ttc
+             FROM {$v} GROUP BY v.jour, v.source, v.categorie", $p
+        ) as $r) {
+            $jours[$r['jour']] ??= ['solide' => 0.0, 'liquide' => 0.0];
+            $famille = caisse_famille($r['source'], $r['categorie']);
+            if ($famille === 'solide' || $famille === 'liquide') {
+                $jours[$r['jour']][$famille] += (float) $r['ttc'];
+            }
+        }
+        foreach ($jours as $jour => $f) {
+            $maj->execute([
+                's' => $f['solide'] > 0 ? round($f['solide'], 2) : null,
+                'l' => $f['liquide'] > 0 ? round($f['liquide'], 2) : null,
+                'pid' => $pid, 'jour' => $jour,
+            ]);
+            $nb += $maj->rowCount();
+        }
+    }
+    return $nb;
+}
+
 /** Toutes les catégories vues dans les caisses, avec leur famille (null = à classer). */
 function caisse_categories_vues(): array
 {

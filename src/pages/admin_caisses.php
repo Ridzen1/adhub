@@ -20,6 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'famil
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recalculer') {
+    $nb = caisse_recalculer_familles();
+    header('Location: /pages/admin_caisses.php?recalcule=' . $nb);
+    exit;
+}
+
 $synchros   = caisse_dernieres_synchros(60);
 $categories = caisse_categories_vues();
 $liens      = get_db()->query(
@@ -36,8 +42,14 @@ require __DIR__ . '/../inc/layout_header.php';
 
 <?php if (isset($_GET['saved'])): ?>
   <div class="alert alert-success">
-    Classement enregistré. Il s'applique aux prochaines synchronisations ; pour recalculer
-    des journées passées, relancer le script sur la période voulue.
+    Classement enregistré. Il s'applique aux prochaines synchronisations ; pour l'appliquer
+    aux journées passées, cliquer sur « Recalculer les journées passées » sous le tableau.
+  </div>
+<?php endif; ?>
+
+<?php if (isset($_GET['recalcule'])): ?>
+  <div class="alert alert-success">
+    Part solide / liquide recalculée sur <?= (int) $_GET['recalcule'] ?> journée(s) importée(s) des caisses.
   </div>
 <?php endif; ?>
 
@@ -103,6 +115,13 @@ require __DIR__ . '/../inc/layout_header.php';
         <div class="p-2"><button class="btn btn-sm btn-dark">Enregistrer</button></div>
       <?php endif; ?>
     </form>
+    <?php if ($categories): ?>
+      <form method="post" class="px-2 pb-2">
+        <input type="hidden" name="action" value="recalculer">
+        <button class="btn btn-sm btn-outline-secondary">Recalculer les journées passées</button>
+        <span class="small text-muted ms-2">Applique le classement à tout l'historique des caisses (saisies manuelles conservées).</span>
+      </form>
+    <?php endif; ?>
   </div>
 </div>
 
