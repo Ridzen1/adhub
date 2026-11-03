@@ -1,0 +1,100 @@
+# Mise en ligne automatique d'AD'HUB sur o2switch.
+#
+# À chaque fusion dans main : vérification de la syntaxe PHP, puis envoi du
+# contenu de src/ dans ~/adhub.fr par FTPS. Seuls les fichiers modifiés sont
+# envoyés. Les fichiers propres au serveur (config/*.local.php, journaux,
+# fichiers déposés) ne sont jamais envoyés, écrasés ni supprimés.
+#
+# Secrets à créer dans GitHub (Settings → Secrets and variables → Actions) :
+#   FTP_SERVER    ex. le nom du serveur o2switch indiqué dans cPanel
+#   FTP_USERNAME  compte FTP dédié, limité au dossier adhub.fr
+#   FTP_PASSWORD  mot de passe de ce compte
+#
+# Les migrations SQL (database/*.sql) ne sont PAS exécutées : elles sont
+# signalées dans le résumé du déploiement, à passer dans phpMyAdmin.
+
+name: Mise en ligne
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploiement-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verification:
+    name: Vérification PHP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Syntaxe de tous les fichiers PHP
+        run: |
+          erreurs=0
+          while IFS= read -r -d '' f; do
+            php -l "$f" > /dev/null || erreurs=1
+          done < <(find src -name '*.php' -print0)
+          exit $erreurs
+
+  mise-en-ligne:
+    name: Envoi sur o2switch
+    needs: verification
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      FTP_SERVER: ${{ secrets.FTP_SERVER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secrets présents ?
+        id: secrets
+        run: |
+          if [ -z "$FTP_SERVER" ]; then
+            echo "pret=non" >> "$GITHUB_OUTPUT"
+            echo "### Mise en ligne non faite" >> "$GITHUB_STEP_SUMMARY"
+            echo "Les secrets FTP_SERVER, FTP_USERNAME et FTP_PASSWORD ne sont pas encore configurés." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "pret=oui" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Envoi des fichiers modifiés
+        if: steps.secrets.outputs.pret == 'oui'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./src/
+          server-dir: ./
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/*.local.php
+            cron/caisses/test_reel_reponse.json
+            **/*.log
+
+      - name: Migrations SQL à passer
+        if: always()
+        run: |
+          avant="${{ github.event.before }}"
+          if [ -z "$avant" ] || ! git cat-file -e "$avant" 2>/dev/null; then
+            avant=$(git rev-parse HEAD~1)
+          fi
+          nouvelles=$(git diff --name-only --diff-filter=A "$avant" HEAD -- 'database/*.sql' || true)
+          if [ -n "$nouvelles" ]; then
+            {
+              echo "### ⚠️ Migrations SQL à exécuter dans phpMyAdmin"
+              echo "Sauvegarder la base, puis importer dans l'ordre :"
+              echo "$nouvelles" | sed 's/^/- /'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Nouvelles migrations SQL à passer : $(echo $nouvelles)"
+          fi

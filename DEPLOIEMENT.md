@@ -164,6 +164,28 @@ o2switch effectue des sauvegardes automatiques, mais mieux vaut ne pas dépendre
 
 ## Mettre à jour l'application par la suite
 
+### Automatiquement (par défaut)
+
+Chaque fusion dans `main` déclenche l'action GitHub **Mise en ligne**
+(`.github/workflows/deploiement.yml`) :
+
+1. vérification de la syntaxe de tous les fichiers PHP (aussi sur chaque PR) ;
+2. envoi par FTPS des seuls fichiers modifiés de `src/` dans `~/adhub.fr` ;
+3. les fichiers `*.local.php`, journaux et fichiers propres au serveur ne sont jamais
+   envoyés, écrasés ni supprimés.
+
+Prérequis, une seule fois : un compte FTP dédié dans **cPanel → Fichiers → Comptes FTP**,
+limité au dossier `adhub.fr`, et trois secrets dans GitHub
+(**Settings → Secrets and variables → Actions**) : `FTP_SERVER`, `FTP_USERNAME`,
+`FTP_PASSWORD`. Sans ces secrets, l'action ne met rien en ligne et le signale.
+
+**Les migrations SQL ne sont pas exécutées automatiquement.** Quand une fusion ajoute un
+fichier dans `database/`, le résumé de l'action l'indique : sauvegarder la base, puis
+l'importer dans phpMyAdmin. Si une migration est nécessaire au nouveau code, la passer
+juste après la mise en ligne.
+
+### À la main (secours)
+
 1. Sauvegarder la base (étape 9)
 2. Remplacer les fichiers modifiés dans `/adhub`
 3. **Ne jamais écraser `config/config.local.php`**
