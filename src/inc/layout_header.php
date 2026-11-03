@@ -24,7 +24,7 @@ foreach ($navProjects as $np) {
 $navPage = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
 $currentProjectId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $pagesSociete = ['project_dashboard', 'project_detail', 'project_documents', 'charges', 'saisie_quotidienne',
-                 'evolution', 'analyse_caisse', 'import_caisse', 'comptabilite', 'objectifs'];
+                 'evolution', 'analyse_caisse', 'import_caisse', 'import_laddition', 'comptabilite', 'objectifs'];
 $pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses', 'admin_pennylane', 'admin_tresorerie', 'admin_retours'];
 $enSociete    = in_array($navPage, $pagesSociete, true) && $currentProjectId > 0;
 

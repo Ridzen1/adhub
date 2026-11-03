@@ -83,7 +83,7 @@ require __DIR__ . '/../inc/layout_header.php';
 ?>
 
 <?= company_header($project, 'saisie',
-      can_edit_project($id) ? '<a href="/pages/import_caisse.php?id=' . $id . '" class="btn btn-sm btn-dark">Importer un rapport</a>' : '') ?>
+      can_edit_project($id) ? '<a href="/pages/import_laddition.php?id=' . $id . '" class="btn btn-sm btn-outline-dark me-1">Importer un export L\'Addition</a><a href="/pages/import_caisse.php?id=' . $id . '" class="btn btn-sm btn-dark">Importer un rapport</a>' : '') ?>
 
 <?php if (isset($_GET['saved'])): ?><div class="alert alert-success">Journée enregistrée.</div><?php endif; ?>
 <?php if (isset($_GET['deleted'])): ?><div class="alert alert-secondary">Journée supprimée.</div><?php endif; ?>
