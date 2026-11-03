@@ -170,7 +170,7 @@ Chaque fusion dans `main` déclenche l'action GitHub **Mise en ligne**
 (`.github/workflows/deploiement.yml`) :
 
 1. vérification de la syntaxe de tous les fichiers PHP (aussi sur chaque PR) ;
-2. envoi par FTPS des seuls fichiers modifiés de `src/` dans `~/adhub.fr` ;
+2. envoi par FTPS (lftp) des fichiers de `src/` dans `~/adhub.fr` ;
 3. les fichiers `*.local.php`, journaux et fichiers propres au serveur ne sont jamais
    envoyés, écrasés ni supprimés.
 

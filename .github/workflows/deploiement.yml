@@ -1,8 +1,7 @@
 # Mise en ligne automatique d'AD'HUB sur o2switch.
 #
 # À chaque fusion dans main : vérification de la syntaxe PHP, puis envoi du
-# contenu de src/ dans ~/adhub.fr par FTPS. Seuls les fichiers modifiés sont
-# envoyés. Les fichiers propres au serveur (config/*.local.php, journaux,
+# contenu de src/ dans ~/adhub.fr par FTPS (lftp). Les fichiers propres au serveur (config/*.local.php, journaux,
 # fichiers déposés) ne sont jamais envoyés, écrasés ni supprimés.
 #
 # Secrets à créer dans GitHub (Settings → Secrets and variables → Actions) :
@@ -65,22 +64,30 @@ jobs:
             echo "pret=oui" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Envoi des fichiers modifiés
+      # lftp plutôt que FTP-Deploy-Action : avec o2switch, la connexion de données
+      # FTPS de cette action est coupée (ECONNRESET). lftp gère correctement la
+      # reprise de session TLS exigée par le serveur.
+      - name: Envoi des fichiers
         if: steps.secrets.outputs.pret == 'oui'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./src/
-          server-dir: ./
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/*.local.php
-            cron/caisses/test_reel_reponse.json
-            **/*.log
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp > /dev/null
+          lftp -u "$FTP_USERNAME" --env-password "ftp://$FTP_SERVER" -e "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate yes;
+            set net:max-retries 3;
+            set net:timeout 30;
+            mirror --reverse --verbose --parallel=3 --no-perms \
+              --exclude-glob .git* \
+              --exclude-glob *.local.php \
+              --exclude-glob *.log \
+              --exclude-glob cron/caisses/test_reel_reponse.json \
+              ./src/ ./;
+            quit
+          "
 
       - name: Migrations SQL à passer
         if: always()
