@@ -34,6 +34,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     }
 }
 
+// Modification du nom, de l'e-mail et, si renseigné, du mot de passe provisoire
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_user') {
+    $cible    = (int) ($_POST['user_id'] ?? 0);
+    $name     = trim($_POST['name'] ?? '');
+    $email    = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if (!csrf_valide() || get_user($cible) === null) {
+        $errors[] = "Modification refusée.";
+    } else {
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = "Nom et e-mail valide obligatoires.";
+        }
+        if ($password !== '' && strlen($password) < 8) {
+            $errors[] = "Le mot de passe doit faire au moins 8 caractères.";
+        }
+    }
+
+    if (!$errors) {
+        try {
+            update_user_identity($cible, $name, $email);
+            if ($password !== '') {
+                update_password($cible, $password);
+            }
+            header('Location: /pages/admin_users.php?updated=1#user-' . $cible);
+            exit;
+        } catch (PDOException $e) {
+            $errors[] = "Cet e-mail est déjà utilisé.";
+        }
+    }
+}
+
 // Activation / désactivation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggle_active') {
     set_user_active((int) $_POST['user_id'], (int) $_POST['active'] === 1);
@@ -139,6 +171,12 @@ require __DIR__ . '/../inc/layout_header.php';
         <?php if (!$u['is_active']): ?>
           <span class="badge badge-archived text-white">Désactivé</span>
         <?php endif; ?>
+        <?php if (user_sans_mot_de_passe($u)): ?>
+          <span class="badge bg-warning" title="Ce compte ne peut pas se connecter tant qu'un mot de passe provisoire n'est pas défini">Mot de passe à définir</span>
+        <?php endif; ?>
+        <?php if (str_ends_with($u['email'], '.invalid')): ?>
+          <span class="badge bg-warning" title="Adresse provisoire, à remplacer par la vraie">E-mail à compléter</span>
+        <?php endif; ?>
         <?php if ($u['totp_enabled']): ?>
           <span class="badge bg-success" title="Double authentification activée">2FA</span>
         <?php elseif (double_auth_est_obligatoire($u['role_code'])): ?>
@@ -148,6 +186,7 @@ require __DIR__ . '/../inc/layout_header.php';
         <?php endif; ?>
       </div>
       <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#edit-<?= (int) $u['id'] ?>">Modifier</button>
       <?php if ($u['totp_enabled'] && (int) $u['id'] !== current_user()['id']): ?>
         <form method="post" onsubmit="return confirm('Réinitialiser la double authentification de cet utilisateur ? Son application ne sera plus reconnue.');">
           <?= csrf_champ() ?>
@@ -164,6 +203,30 @@ require __DIR__ . '/../inc/layout_header.php';
           <?= $u['is_active'] ? 'Désactiver' : 'Réactiver' ?>
         </button>
       </form>
+      </div>
+    </div>
+    <div class="collapse border-bottom" id="edit-<?= (int) $u['id'] ?>">
+      <div class="card-body bg-light">
+        <form method="post" class="row g-2 align-items-end">
+          <?= csrf_champ() ?>
+          <input type="hidden" name="action" value="edit_user">
+          <input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
+          <div class="col-md-3">
+            <label class="form-label small">Nom</label>
+            <input type="text" name="name" class="form-control form-control-sm" value="<?= htmlspecialchars($u['name']) ?>" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">E-mail de connexion</label>
+            <input type="email" name="email" class="form-control form-control-sm" value="<?= htmlspecialchars($u['email']) ?>" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Nouveau mot de passe provisoire</label>
+            <input type="text" name="password" class="form-control form-control-sm" minlength="8" autocomplete="off" placeholder="Laisser vide pour ne pas changer">
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-sm btn-dark w-100">Enregistrer</button>
+          </div>
+        </form>
       </div>
     </div>
     <div class="card-body">

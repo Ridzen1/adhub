@@ -369,6 +369,18 @@ Migration : `database/020_boite_a_idees.sql` (table `retours`). Sans elle, les p
 - Pas de notification par e-mail pour l'instant : la pastille sert d'alerte.
 - Code : `src/inc/retours.php`, `src/pages/remonter.php`, `src/pages/admin_retours.php`.
 
+## Comptes des équipes restaurants
+
+Migration : `database/021_comptes_restaurants.sql` (relançable sans doublon).
+
+- Crée la société **JACS BOX** (Restauration - Exploitation), vide.
+- Crée les comptes Gestionnaire, en lecture seule sur leurs restaurants : Bellevue (Olivier Forgas, Baptiste Gautier),
+  Valentino (Romain Asselin, Baptiste Gautier), Chez Côme (Baptiste Gautier, Pierre Legrand, Mathieu Trognon).
+  Arnaud Duvivier, rôle Direction, voit déjà tout.
+- Aucun mot de passe dans le dépôt : les comptes naissent avec une empreinte invalide (badge « Mot de passe à définir »)
+  et ne peuvent pas se connecter. La direction définit un mot de passe provisoire via **Modifier** dans
+  Administration → Utilisateurs, où elle corrige aussi les e-mails provisoires `@a-completer.invalid`.
+
 ## Prochaine étape
 
 - Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
