@@ -115,6 +115,7 @@ h5.text-muted, h6.text-muted {
   font-size: .78rem; font-weight: 800; letter-spacing: 0;
 }
 .hub-brand-name span { color: var(--ad-gold); }
+.hub-brand-logo { display: block; height: 44px; width: auto; }
 
 .hub-nav { display: flex; align-items: center; gap: 4px; flex: 1; }
 .hub-nav > a, .hub-nav > .dropdown > button {
@@ -514,6 +515,10 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
 .login-panel { display: flex; align-items: center; justify-content: center; padding: 40px 24px; background: #fff; }
 .login-box { width: 100%; max-width: 380px; }
 .login-box h1 { font-size: 1.5rem; }
+.login-logo { position: relative; z-index: 1; }
+.login-logo img { display: block; width: 260px; max-width: 100%; height: auto; }
+.login-brand-mobile { display: none; }
+.login-brand-mobile img { display: block; width: 200px; max-width: 70vw; height: auto; }
 
 /* ------------------------------------------------------------------ */
 /* Mobile                                                              */
@@ -536,6 +541,9 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
   .company-head { padding: 16px 16px 0; }
   .login-wrap { grid-template-columns: 1fr; }
   .login-aside { display: none; }
+  .login-brand-mobile { display: block; margin-bottom: 28px; }
+  .login-panel { align-items: flex-start; padding-top: 48px; }
+  .hub-brand-logo { height: 40px; }
   .hub-footer { padding: 0 16px 20px; }
 }
 @media (max-width: 575.98px) {
@@ -552,7 +560,6 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
 .table td.text-end, .table th.text-end, .table td.num, .table .badge, .delta { white-space: nowrap; }
 .table-responsive { -webkit-overflow-scrolling: touch; }
 .card-header { flex-wrap: wrap; row-gap: 6px; }
-.login-brand-mobile { display: none; }
 
 @media (max-width: 767.98px) {
   h1, .h1 { font-size: 1.35rem; }
@@ -580,9 +587,6 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
   .hub-footer { flex-direction: column; gap: 4px; }
   .date-range { width: 100%; }
   .date-range input { flex: 1 1 0; min-width: 0; }
-  .login-brand-mobile { display: inline-flex; margin-bottom: 28px; }
-  .login-brand-mobile .hub-brand-name { color: var(--ad-navy); }
-  .login-panel { align-items: flex-start; padding-top: 56px; }
   .form-control, .form-select { font-size: 16px; } /* évite le zoom automatique sur iPhone */
 }
 

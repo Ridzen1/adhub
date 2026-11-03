@@ -13,13 +13,15 @@ require_once __DIR__ . '/ui.php';
   <title><?= h($authTitre ?? 'Connexion') ?> · AD'HUB</title>
   <link href="/assets/vendor/bootstrap.min.css" rel="stylesheet">
   <link href="/assets/adhub.css?v=<?= @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1 ?>" rel="stylesheet">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
 </head>
 <body>
   <div class="login-wrap">
     <aside class="login-aside">
-      <div class="hub-brand">
-        <span class="hub-brand-mark">AD</span>
-        <span class="hub-brand-name">AD<span>'</span>HUB</span>
+      <div class="login-logo">
+        <img src="/assets/img/adhub-logo-clair.png" alt="AD'Hub · Invest, Connect, Grow" width="260" height="173">
       </div>
       <div style="position:relative;z-index:1">
         <h2>Le pilotage de toutes vos sociétés, au même endroit.</h2>
@@ -35,7 +37,6 @@ require_once __DIR__ . '/ui.php';
 
     <div class="login-panel">
       <div class="login-box">
-        <div class="hub-brand login-brand-mobile">
-          <span class="hub-brand-mark">AD</span>
-          <span class="hub-brand-name">AD<span>'</span>HUB</span>
+        <div class="login-brand-mobile">
+          <img src="/assets/img/adhub-logo.png" alt="AD'Hub · Invest, Connect, Grow" width="200" height="133">
         </div>
