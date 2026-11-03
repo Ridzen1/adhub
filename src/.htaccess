@@ -11,7 +11,8 @@
 </IfModule>
 
 # Bloquer l'accès direct aux fichiers sensibles
-<FilesMatch "^(config\.local\.php|\.env|.*\.sql|.*\.md|composer\.(json|lock))$">
+# (.ftp-deploy-sync-state.json : liste des fichiers tenue par la mise en ligne automatique)
+<FilesMatch "^(config\.local\.php|\.env|\.ftp-deploy-sync-state\.json|.*\.sql|.*\.md|composer\.(json|lock))$">
     Require all denied
 </FilesMatch>
 
