@@ -379,7 +379,7 @@ Migration : `database/021_comptes_restaurants.sql` (relançable sans doublon).
   Arnaud Duvivier, rôle Direction, voit déjà tout.
 - Aucun mot de passe dans le dépôt : les comptes naissent avec une empreinte invalide (badge « Mot de passe à définir »)
   et ne peuvent pas se connecter. La direction définit un mot de passe provisoire via **Modifier** dans
-  Administration → Utilisateurs, où elle corrige aussi les e-mails provisoires `@a-completer.invalid`.
+  Administration → Utilisateurs. Les e-mails sont les vrais (relancer la migration remplace d'anciennes adresses provisoires).
 
 ## Prochaine étape
 
