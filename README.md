@@ -229,6 +229,23 @@ références nécessaires) : CA nul, moitié moins, ou 1,8 fois plus.
 L'outil **signale sans corriger** : il ne peut pas distinguer un oubli de clôture d'une mauvaise
 journée ou d'un jour de fermeture. La décision reste humaine.
 
+## Import de l'export L'Addition « Détails par service »
+
+Pour un restaurant sur L'Addition dont on n'a pas les identifiants (ex. le Valentino), la
+direction exporte depuis le back-office L'Addition le fichier Excel « Détails par service »
+et le dépose dans Saisie quotidienne → **Importer un export L'Addition**
+(`pages/import_laddition.php`, code dans `inc/export_laddition.php`).
+
+- Une ligne de l'export = une clôture de caisse ; la journée retenue est celle de l'ouverture
+  du service. Plusieurs clôtures le même jour sont additionnées.
+- Chaque journée alimente `daily_entries` (source `email`) : CA TTC/HT, couverts, remises,
+  offerts, ticket moyen par addition (CA / commandes), solide, liquide (alcool + sans alcool).
+- Services marqués « test » et clôtures à 0 € ignorés. Un aperçu est montré avant d'écrire.
+- Ré-importer une période met les journées à jour ; une journée saisie à la main est conservée
+  sauf si la case « Remplacer aussi les journées saisies à la main » est cochée.
+- La synchro caisse automatique (source `api`) n'écrase pas ces journées.
+- Aucune migration nécessaire.
+
 ## Caisses : synchronisation L'Addition et Popina
 
 En attendant les clés API officielles, deux scripts se connectent chaque nuit aux back-offices
