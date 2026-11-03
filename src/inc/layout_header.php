@@ -47,7 +47,9 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($pageTitle ?? "AD'HUB") ?> · AD'HUB</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23C8A84B'/><text x='16' y='21.5' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%230E1C2B'>AD</text></svg>">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
   <link href="/assets/vendor/bootstrap.min.css" rel="stylesheet">
   <link href="/assets/adhub.css?v=<?= $assetV ?>" rel="stylesheet">
   <script src="/assets/vendor/chart.umd.min.js"></script>
@@ -58,8 +60,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 <header class="hub-topbar" id="hubTopbar">
   <div class="hub-topbar-inner">
     <a class="hub-brand" href="/pages/accueil.php">
-      <span class="hub-brand-mark">AD</span>
-      <span class="hub-brand-name">AD<span>'</span>HUB</span>
+      <img class="hub-brand-logo" src="/assets/img/adhub-logo-entete.png" alt="AD'Hub" width="73" height="44">
     </a>
 
     <button class="hub-menu-toggle" type="button" aria-label="Menu" onclick="document.getElementById('hubTopbar').classList.toggle('open')">
