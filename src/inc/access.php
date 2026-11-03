@@ -304,6 +304,19 @@ function update_password(int $userId, string $newPassword): void
     $stmt->execute(['h' => password_hash($newPassword, PASSWORD_DEFAULT), 'id' => $userId]);
 }
 
+/** Modifie le nom et l'e-mail d'un compte (par la direction). */
+function update_user_identity(int $userId, string $name, string $email): void
+{
+    $stmt = get_db()->prepare("UPDATE users SET name = :n, email = :e WHERE id = :id");
+    $stmt->execute(['n' => $name, 'e' => $email, 'id' => $userId]);
+}
+
+/** Vrai si le compte n'a pas encore de mot de passe (créé par migration, empreinte invalide). */
+function user_sans_mot_de_passe(array $user): bool
+{
+    return str_starts_with((string) ($user['password_hash'] ?? ''), '!');
+}
+
 function get_user_access(int $userId): array
 {
     $sql = "SELECT pua.*, p.name AS project_name, pt.label AS type_label
