@@ -72,12 +72,18 @@ jobs:
         env:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          # Le certificat FTPS d'o2switch n'est pas reconnu par lftp (émetteur
+          # inconnu) : on autorise uniquement CE certificat, par son empreinte.
+          # Au renouvellement du certificat, l'envoi échoue en affichant la
+          # nouvelle empreinte : la recopier ici après vérification.
+          FTP_CERT_SHA1: '34:37:0F:D8:38:96:FE:AC:31:27:9E:6A:8C:5B:99:5E:0C:C9:17:A5'
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp > /dev/null
           lftp -u "$FTP_USERNAME" --env-password "ftp://$FTP_SERVER" -e "
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
             set ssl:verify-certificate yes;
+            set ssl:verify-certificate/$FTP_CERT_SHA1 no;
             set net:max-retries 3;
             set net:timeout 30;
             mirror --reverse --verbose --parallel=3 --no-perms \
