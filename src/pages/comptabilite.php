@@ -21,11 +21,9 @@ if (!$project) {
 require_project_access($id, 'dashboard');
 
 $noms = pennylane_noms_projet($id);
-// Restaurant : les factures fournisseurs ne sont ni gardées ni montrées ; seuls les comptes et la banque apparaissent ici
+// Restaurant : ni factures (à payer, en retard, clients) ni achats ; seuls les principaux fournisseurs,
+// les comptes et la banque apparaissent ici
 $estRestaurant = is_restaurant($project);
-if ($estRestaurant) {
-    pennylane_retirer_factures_fournisseurs_restaurants();
-}
 
 [$inA, $pA] = pl_in($noms, 'a');
 [$inB, $pB] = pl_in($noms, 'b');
@@ -42,7 +40,7 @@ $au = $annee . '-12-31';
 
 $s        = pennylane_synthese($noms, $du, $au);
 $parMois  = pennylane_par_mois($noms, $du, $annee < (int) date('Y') ? $au : date('Y-m-d'));
-$top      = pennylane_top_fournisseurs($noms, $du, $au, 8);
+$top      = pennylane_top_fournisseurs($noms, $du, $au, $estRestaurant ? 15 : 8);
 $ouvertes = pennylane_factures_ouvertes($noms, 'fournisseur', 40);
 $aEncaisser = pennylane_factures_ouvertes($noms, 'client', 20);
 $operations = pennylane_dernieres_transactions($noms, 25);
@@ -98,7 +96,7 @@ require __DIR__ . '/../inc/layout_header.php';
   </div></div>
 <?php else: ?>
 
-<?php if ($estRestaurant && !$avecBanque && !$comptes && !$tresoMois): ?>
+<?php if ($estRestaurant && !$avecBanque && !$comptes && !$tresoMois && !$top): ?>
   <div class="card"><div class="card-body empty-state">
     Pas de compte bancaire de <?= h($project['name']) ?> dans l'export Pennylane.
     Les ventes du restaurant sont suivies par la caisse, dans le tableau de bord.
@@ -234,9 +232,8 @@ require __DIR__ . '/../inc/layout_header.php';
 </div>
 <?php endif; ?>
 
-<?php if (!$estRestaurant): ?>
 <div class="row g-4 mb-4">
-  <div class="col-xl-5">
+  <div class="<?= $estRestaurant ? 'col-12' : 'col-xl-5' ?>">
     <div class="card h-100">
       <div class="card-header">Principaux fournisseurs <span class="text-muted small fw-normal"><?= $annee ?>, TTC</span></div>
       <div class="card-body p-0">
@@ -248,16 +245,17 @@ require __DIR__ . '/../inc/layout_header.php';
                   <div class="fw-semibold text-truncate" style="max-width:min(260px,48vw)"><?= h($t['tiers']) ?></div>
                   <div class="meter mt-1" style="width:100%;max-width:min(260px,48vw)"><span style="width:<?= max(2, round((float) $t['ttc'] / $totalTop * 100)) ?>%"></span></div>
                 </td>
-                <td class="text-end text-muted small d-none d-sm-table-cell"><?= (int) $t['nb'] ?> fact.</td>
+                <?php if (!$estRestaurant): ?><td class="text-end text-muted small d-none d-sm-table-cell"><?= (int) $t['nb'] ?> fact.</td><?php endif; ?>
                 <td class="text-end fw-semibold"><?= eur((float) $t['ttc']) ?></td>
               </tr>
             <?php endforeach; ?>
-            <?php if (!$top): ?><tr><td class="text-center text-muted py-4">Aucune facture fournisseur sur <?= $annee ?>.</td></tr><?php endif; ?>
+            <?php if (!$top): ?><tr><td class="text-center text-muted py-4">Aucun fournisseur sur <?= $annee ?>.</td></tr><?php endif; ?>
           </tbody>
         </table>
       </div>
     </div>
   </div>
+  <?php if (!$estRestaurant): ?>
   <div class="col-xl-7">
     <div class="card h-100">
       <div class="card-header">
@@ -293,8 +291,8 @@ require __DIR__ . '/../inc/layout_header.php';
       <?php endif; ?>
     </div>
   </div>
+  <?php endif; ?>
 </div>
-<?php endif; ?>
 
 <?php if ($aEncaisser && !$estRestaurant): ?>
 <div class="card mb-4">
