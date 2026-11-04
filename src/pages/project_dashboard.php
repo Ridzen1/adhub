@@ -112,7 +112,7 @@ if (!empty($project['siret_siren'])) {
 if (!empty($project['adresse'])) {
     $metaHtml[] = h($project['adresse']);
 }
-if ($project['solde_bancaire'] !== null) {
+if ($project['solde_bancaire'] !== null && !$estRestaurant) { // pas de trésorerie pour un restaurant
     $metaHtml[] = 'Trésorerie <strong class="text-body">' . eur((float) $project['solde_bancaire']) . '</strong>'
                 . ($project['solde_maj_le'] ? ' au ' . date('d/m/Y', strtotime($project['solde_maj_le'])) : '');
 }

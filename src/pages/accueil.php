@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/financials.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
+require_once __DIR__ . '/../inc/cartes_restaurants.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_login();
 
@@ -14,7 +15,12 @@ if (is_direction()) {
 $user     = current_user();
 $projects = get_visible_projects();
 
-$bornesMois = bornes_periode('mois');
+// Les restaurants dont on voit le tableau de bord ont leurs indicateurs détaillés
+// (mêmes cartes que la vue d'ensemble de la direction) ; les autres sociétés gardent une carte simple.
+$restaurants = array_values(array_filter($projects, fn($p) =>
+    $p['type_code'] === 'restauration_exploitation' && can_view_project((int) $p['id'], 'dashboard')));
+$idsRestos = array_map(fn($p) => (int) $p['id'], $restaurants);
+$autres    = array_values(array_filter($projects, fn($p) => !in_array((int) $p['id'], $idsRestos, true)));
 
 $pageTitle = 'Mes sociétés';
 require __DIR__ . '/../inc/layout_header.php';
@@ -28,14 +34,16 @@ require __DIR__ . '/../inc/layout_header.php';
     <div>Aucune société ne vous est attribuée pour l'instant. Contactez la direction si c'est une erreur.</div>
   </div></div>
 <?php else: ?>
+  <?php afficher_cartes_restaurants($restaurants); ?>
+  <?php if ($autres): ?>
+  <?php if ($restaurants): ?><div class="family-head mb-3"><div class="family-title">Autres sociétés</div></div><?php endif; ?>
   <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-    <?php foreach ($projects as $p):
+    <?php foreach ($autres as $p):
       $pid     = (int) $p['id'];
       $voitDash = can_view_project($pid, 'dashboard');
       $latest  = $voitDash ? get_latest_entry($pid) : null;
       $net     = $latest ? ((float) $latest['revenus'] - (float) $latest['charges']) : null;
-      $caMois  = $voitDash && $p['type_code'] === 'restauration_exploitation'
-               ? ca_societes([$pid], $bornesMois['debut'], $bornesMois['fin'])['ca'] : null;
+      $estResto = $p['type_code'] === 'restauration_exploitation';
     ?>
       <div class="col">
         <a href="<?= lien_societe($pid) ?>" class="kpi company-card">
@@ -49,12 +57,6 @@ require __DIR__ . '/../inc/layout_header.php';
             <?php endif; ?>
           </div>
           <div class="row g-2">
-            <?php if ($caMois !== null): ?>
-              <div class="col-6">
-                <div class="kpi-label">CA du mois</div>
-                <div class="fw-bold fs-5 num"><?= eur($caMois) ?></div>
-              </div>
-            <?php endif; ?>
             <?php if (!$voitDash): ?>
               <div class="col-12 text-muted small"><?= icon('file', 14) ?> Accès aux documents uniquement</div>
             <?php else: ?>
@@ -63,7 +65,7 @@ require __DIR__ . '/../inc/layout_header.php';
               <div class="fw-bold fs-5 num <?= $net !== null && $net < 0 ? 'text-danger' : '' ?>"><?= $net !== null ? eur($net) : '<span class="text-muted fw-normal fs-6">—</span>' ?></div>
             </div>
             <?php endif; ?>
-            <?php if ($voitDash && $p['solde_bancaire'] !== null && $caMois === null): ?>
+            <?php if ($voitDash && $p['solde_bancaire'] !== null && !$estResto): // jamais de trésorerie pour un restaurant ?>
               <div class="col-6">
                 <div class="kpi-label">Trésorerie</div>
                 <div class="fw-bold fs-5 num"><?= eur((float) $p['solde_bancaire']) ?></div>
@@ -74,6 +76,7 @@ require __DIR__ . '/../inc/layout_header.php';
       </div>
     <?php endforeach; ?>
   </div>
+  <?php endif; ?>
 <?php endif; ?>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>
