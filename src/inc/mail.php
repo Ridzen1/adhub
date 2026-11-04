@@ -19,6 +19,20 @@ function mail_expediteur(): array
     ];
 }
 
+/**
+ * Adresse des e-mails « humains » (invitations, mot de passe oublié) : une vraie boîte,
+ * pour que les réponses arrivent quelque part. Les codes de connexion, eux, partent
+ * de mail_expediteur() (ne-pas-repondre@…).
+ */
+function mail_expediteur_comptes(): array
+{
+    $conf = config_locale()['mail'] ?? [];
+    return [
+        'adresse' => (string) ($conf['expediteur_comptes'] ?? 'contact@ad-hub.fr'),
+        'nom'     => (string) ($conf['expediteur_nom'] ?? "AD'HUB"),
+    ];
+}
+
 /** En-tête encodé en UTF-8 (accents dans le sujet ou le nom d'expéditeur) */
 function mail_entete_utf8(string $texte): string
 {
@@ -42,16 +56,19 @@ function email_valide_pour_envoi(?string $email): bool
     return !preg_match('/\.(invalid|test|example|localhost|local)$/', $domaine);
 }
 
-/** Envoie un e-mail texte. true si le serveur l'a accepté. */
-function envoyer_mail(string $destinataire, string $sujet, string $texte): bool
+/**
+ * Envoie un e-mail texte. true si le serveur l'a accepté.
+ * $exp : expéditeur ['adresse' => …, 'nom' => …], par défaut mail_expediteur().
+ */
+function envoyer_mail(string $destinataire, string $sujet, string $texte, ?array $exp = null): bool
 {
     if (!email_valide_pour_envoi($destinataire)) {
         return false;
     }
-    $exp = mail_expediteur();
+    $exp ??= mail_expediteur();
 
     if (!est_en_production()) {
-        error_log("[ADHUB mail local, non envoyé] À : $destinataire | $sujet\n$texte");
+        error_log("[ADHUB mail local, non envoyé] De : {$exp['adresse']} | À : $destinataire | $sujet\n$texte");
         return true;
     }
 

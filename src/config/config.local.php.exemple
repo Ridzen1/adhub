@@ -32,7 +32,12 @@ return [
     'mail' => [
         'expediteur'     => 'ne-pas-repondre@ad-hub.fr', // adresse d'un domaine hébergé sur le compte o2switch
         'expediteur_nom' => "AD'HUB",
+        // Invitations et « mot de passe oublié » : une vraie boîte qui reçoit les réponses
+        'expediteur_comptes' => 'contact@ad-hub.fr',
     ],
+
+    // Adresse publique utilisée dans les liens des e-mails (par défaut https://ad-hub.fr)
+    // 'url_site' => 'https://ad-hub.fr',
 
     // Interrupteur de secours : mettre false UNIQUEMENT si les e-mails n'arrivent plus
     // et que plus personne ne peut se connecter. La connexion repasse alors au mot de

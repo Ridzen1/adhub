@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $info = isset($_GET['expire']) ? "La vérification a expiré. Reconnectez-vous." : null;
+$succes = isset($_GET['mdp']) ? "Mot de passe enregistré. Connectez-vous avec votre nouveau mot de passe." : null;
 
 $authTitre = 'Connexion';
 require __DIR__ . '/../inc/layout_auth_header.php';
@@ -60,6 +61,8 @@ require __DIR__ . '/../inc/layout_auth_header.php';
           <div class="alert alert-danger py-2"><?= h($error) ?></div>
         <?php elseif ($info): ?>
           <div class="alert alert-warning py-2"><?= h($info) ?></div>
+        <?php elseif ($succes): ?>
+          <div class="alert alert-success py-2"><?= h($succes) ?></div>
         <?php endif; ?>
         <form method="post">
           <div class="mb-3">
@@ -68,10 +71,14 @@ require __DIR__ . '/../inc/layout_auth_header.php';
                    value="<?= h($_POST['email'] ?? '') ?>">
           </div>
           <div class="mb-4">
-            <label class="form-label">Mot de passe</label>
+            <div class="d-flex justify-content-between align-items-baseline">
+              <label class="form-label">Mot de passe</label>
+              <a href="/pages/mot_de_passe_oublie.php" class="small">Mot de passe oublié ?</a>
+            </div>
             <input type="password" name="password" class="form-control form-control-lg" style="font-size:.95rem" required autocomplete="current-password">
           </div>
           <button type="submit" class="btn btn-dark btn-lg w-100" style="font-size:.95rem">Se connecter</button>
         </form>
-        <p class="text-muted small mt-4 mb-0">Un code de vérification vous sera envoyé par e-mail.</p>
+        <p class="text-muted small mt-4 mb-0">Un code de vérification vous sera envoyé par e-mail.
+          Première connexion ? Utilisez le lien reçu par e-mail, ou « Mot de passe oublié ? ».</p>
 <?php require __DIR__ . '/../inc/layout_auth_footer.php'; ?>

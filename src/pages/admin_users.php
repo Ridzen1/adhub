@@ -2,9 +2,57 @@
 require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/projects.php';
 require_once __DIR__ . '/../inc/double_auth.php';
+require_once __DIR__ . '/../inc/mot_de_passe.php';
 require_direction();
 
 $errors = [];
+
+// Envoi du lien « choisir mon mot de passe » à un compte
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'invite_user') {
+    $cible = get_user((int) ($_POST['user_id'] ?? 0));
+    if (!csrf_valide() || $cible === null) {
+        $errors[] = "Envoi refusé.";
+    } elseif (!$cible['is_active']) {
+        $errors[] = "Ce compte est désactivé : réactivez-le avant d'envoyer le lien.";
+    } elseif (!email_valide_pour_envoi($cible['email'])) {
+        $errors[] = "L'adresse de " . $cible['name'] . " n'est pas valide : corrigez-la avec « Modifier » avant d'envoyer le lien.";
+    } elseif (!envoyer_invitation($cible)) {
+        $errors[] = "L'e-mail pour " . $cible['name'] . " n'a pas pu partir. Réessayez dans un instant.";
+    } else {
+        $_SESSION['flash_invitations'] = ['envoyes' => [$cible['name'] . ' (' . $cible['email'] . ')'], 'echecs' => [], 'ignores' => []];
+        header('Location: /pages/admin_users.php#user-' . (int) $cible['id']);
+        exit;
+    }
+}
+
+// Envoi groupé : comptes sans mot de passe, ou tous les comptes actifs (sauf soi-même)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'invite_all') {
+    $cibleGroupe = ($_POST['cible'] ?? '') === 'tous' ? 'tous' : 'sans_mdp';
+    if (!csrf_valide()) {
+        $errors[] = "Envoi refusé.";
+    } else {
+        $bilan = ['envoyes' => [], 'echecs' => [], 'ignores' => []];
+        foreach (get_all_users() as $cu) {
+            if (!$cu['is_active'] || (int) $cu['id'] === current_user()['id']) {
+                continue;
+            }
+            if ($cibleGroupe === 'sans_mdp' && !user_sans_mot_de_passe($cu)) {
+                continue;
+            }
+            $libelle = $cu['name'] . ' (' . $cu['email'] . ')';
+            if (!email_valide_pour_envoi($cu['email'])) {
+                $bilan['ignores'][] = $libelle;
+            } elseif (envoyer_invitation($cu)) {
+                $bilan['envoyes'][] = $libelle;
+            } else {
+                $bilan['echecs'][] = $libelle;
+            }
+        }
+        $_SESSION['flash_invitations'] = $bilan;
+        header('Location: /pages/admin_users.php');
+        exit;
+    }
+}
 
 // Création d'un utilisateur
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_user') {
@@ -16,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     if ($name === '' || $email === '') {
         $errors[] = "Nom et email sont obligatoires.";
     }
-    if (strlen($password) < 8) {
+    if ($password !== '' && strlen($password) < 8) {
         $errors[] = "Le mot de passe doit faire au moins 8 caractères.";
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -25,8 +73,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 
     if (!$errors) {
         try {
-            create_user($name, $email, $password, $roleId);
-            header('Location: /pages/admin_users.php?created=1');
+            $nouvelId = create_user($name, $email, $password !== '' ? $password : bin2hex(random_bytes(24)), $roleId);
+            if ($password === '') {
+                // Pas de mot de passe provisoire : la personne choisira le sien avec le lien e-mail
+                retirer_mot_de_passe($nouvelId);
+                $nouveau = get_user($nouvelId);
+                if (!empty($_POST['inviter']) && email_valide_pour_envoi($email)) {
+                    $_SESSION['flash_invitations'] = envoyer_invitation($nouveau)
+                        ? ['envoyes' => [$name . ' (' . $email . ')'], 'echecs' => [], 'ignores' => []]
+                        : ['envoyes' => [], 'echecs' => [$name . ' (' . $email . ')'], 'ignores' => []];
+                }
+            }
+            header('Location: /pages/admin_users.php?created=1#user-' . $nouvelId);
             exit;
         } catch (PDOException $e) {
             $errors[] = "Cet email est déjà utilisé.";
@@ -120,11 +178,27 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php if (isset($_GET['revoked'])): ?><div class="alert alert-secondary">Accès retiré.</div><?php endif; ?>
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-secondary">Utilisateur mis à jour.</div><?php endif; ?>
 <?php foreach ($errors as $e): ?><div class="alert alert-danger"><?= htmlspecialchars($e) ?></div><?php endforeach; ?>
+<?php if (isset($_SESSION['flash_invitations'])): $bilan = $_SESSION['flash_invitations']; unset($_SESSION['flash_invitations']); ?>
+  <div class="alert <?= $bilan['echecs'] || $bilan['ignores'] ? 'alert-warning' : 'alert-success' ?>">
+    <?php if ($bilan['envoyes']): ?>
+      <strong><?= count($bilan['envoyes']) ?> e-mail(s) envoyé(s)</strong> pour choisir le mot de passe :
+      <?= h(implode(', ', $bilan['envoyes'])) ?>.
+    <?php elseif (!$bilan['echecs'] && !$bilan['ignores']): ?>
+      Aucun compte concerné : aucun e-mail envoyé.
+    <?php endif; ?>
+    <?php if ($bilan['echecs']): ?>
+      <div class="mt-1"><strong>Envoi impossible</strong> (réessayez) : <?= h(implode(', ', $bilan['echecs'])) ?>.</div>
+    <?php endif; ?>
+    <?php if ($bilan['ignores']): ?>
+      <div class="mt-1"><strong>Pas d'adresse e-mail valide</strong>, rien envoyé (corrigez avec « Modifier ») : <?= h(implode(', ', $bilan['ignores'])) ?>.</div>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
 
 <div class="card mb-4">
   <div class="card-header">Nouvel utilisateur</div>
   <div class="card-body">
-    <form method="post" class="row g-3">
+    <form method="post" class="row g-3" id="form-nouvel-utilisateur">
       <input type="hidden" name="action" value="create_user">
       <div class="col-md-3">
         <label class="form-label">Nom</label>
@@ -135,8 +209,8 @@ require __DIR__ . '/../inc/layout_header.php';
         <input type="email" name="email" class="form-control" required>
       </div>
       <div class="col-md-3">
-        <label class="form-label">Mot de passe provisoire</label>
-        <input type="text" name="password" class="form-control" minlength="8" required>
+        <label class="form-label">Mot de passe provisoire <span class="text-muted small">(facultatif)</span></label>
+        <input type="text" name="password" class="form-control" minlength="8" autocomplete="off" placeholder="Vide : la personne le choisit">
       </div>
       <div class="col-md-2">
         <label class="form-label">Rôle</label>
@@ -155,6 +229,47 @@ require __DIR__ . '/../inc/layout_header.php';
     <div class="form-text mt-2">
       Le rôle <strong>Direction</strong> donne accès à toutes les sociétés automatiquement — inutile de lui attribuer des accès un par un.
     </div>
+    <div class="form-check mt-2">
+      <input class="form-check-input" type="checkbox" name="inviter" value="1" id="inviter" form="form-nouvel-utilisateur" checked>
+      <label class="form-check-label small" for="inviter">
+        Sans mot de passe provisoire : envoyer tout de suite l'e-mail pour choisir son mot de passe (depuis <?= h(mail_expediteur_comptes()['adresse']) ?>)
+      </label>
+    </div>
+  </div>
+</div>
+
+<?php
+  $autres       = array_filter($users, fn ($x) => $x['is_active'] && (int) $x['id'] !== current_user()['id']);
+  $nbSansMdp    = count(array_filter($autres, 'user_sans_mot_de_passe'));
+  $sansAdresse  = array_filter($autres, fn ($x) => !email_valide_pour_envoi($x['email']));
+?>
+<div class="card mb-4">
+  <div class="card-header">Laisser chacun choisir son mot de passe</div>
+  <div class="card-body">
+    <p class="mb-2">
+      Chaque compte reçoit un e-mail de <strong><?= h(mail_expediteur_comptes()['adresse']) ?></strong> avec un lien sécurisé,
+      valable 7 jours et utilisable une seule fois, pour choisir lui-même son mot de passe.
+      Son mot de passe actuel reste valable tant qu'il n'en a pas choisi un nouveau.
+    </p>
+    <?php if ($sansAdresse): ?>
+      <p class="small text-warning-emphasis mb-2">
+        Sans adresse e-mail valide (rien ne leur sera envoyé) : <?= h(implode(', ', array_map(fn ($x) => $x['name'] . ' (' . $x['email'] . ')', $sansAdresse))) ?>.
+      </p>
+    <?php endif; ?>
+    <div class="d-flex gap-2 flex-wrap">
+      <form method="post" onsubmit="return confirm('Envoyer le lien aux <?= $nbSansMdp ?> compte(s) qui n\'ont pas encore de mot de passe ?');">
+        <?= csrf_champ() ?>
+        <input type="hidden" name="action" value="invite_all">
+        <input type="hidden" name="cible" value="sans_mdp">
+        <button type="submit" class="btn btn-sm btn-dark" <?= $nbSansMdp ? '' : 'disabled' ?>>Envoyer aux comptes sans mot de passe (<?= $nbSansMdp ?>)</button>
+      </form>
+      <form method="post" onsubmit="return confirm('Envoyer le lien à TOUS les comptes actifs (<?= count($autres) ?>, vous exclu) ?');">
+        <?= csrf_champ() ?>
+        <input type="hidden" name="action" value="invite_all">
+        <input type="hidden" name="cible" value="tous">
+        <button type="submit" class="btn btn-sm btn-outline-dark">Envoyer à tous les comptes actifs (<?= count($autres) ?>)</button>
+      </form>
+    </div>
   </div>
 </div>
 
@@ -172,7 +287,7 @@ require __DIR__ . '/../inc/layout_header.php';
           <span class="badge badge-archived text-white">Désactivé</span>
         <?php endif; ?>
         <?php if (user_sans_mot_de_passe($u)): ?>
-          <span class="badge bg-warning" title="Ce compte ne peut pas se connecter tant qu'un mot de passe provisoire n'est pas défini">Mot de passe à définir</span>
+          <span class="badge bg-warning" title="Ce compte ne peut pas se connecter tant que la personne n'a pas choisi son mot de passe (lien e-mail) ou qu'un mot de passe provisoire n'est pas défini">Mot de passe à définir</span>
         <?php endif; ?>
         <?php if ($u['totp_enabled']): ?>
           <span class="badge bg-success" title="Code de l'application d'authentification à chaque connexion (ou par e-mail en secours)">2FA appli</span>
@@ -184,6 +299,14 @@ require __DIR__ . '/../inc/layout_header.php';
       </div>
       <div class="d-flex gap-2">
       <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#edit-<?= (int) $u['id'] ?>">Modifier</button>
+      <?php if ($u['is_active'] && email_valide_pour_envoi($u['email'])): ?>
+        <form method="post" onsubmit="return confirm('Envoyer à <?= h(addslashes($u['email'])) ?> le lien pour choisir son mot de passe ?');">
+          <?= csrf_champ() ?>
+          <input type="hidden" name="action" value="invite_user">
+          <input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
+          <button type="submit" class="btn btn-sm btn-outline-dark" title="E-mail avec un lien pour choisir son mot de passe">Envoyer le lien mot de passe</button>
+        </form>
+      <?php endif; ?>
       <?php if ($u['totp_enabled'] && (int) $u['id'] !== current_user()['id']): ?>
         <form method="post" onsubmit="return confirm('Retirer l\'application d\'authentification de cet utilisateur ? Il recevra ses codes par e-mail.');">
           <?= csrf_champ() ?>
