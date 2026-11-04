@@ -310,6 +310,8 @@ dans **Administration → Import Pennylane** (migration `013_pennylane.sql`).
 - **Restaurants** : l'onglet Comptabilité ne montre que les principaux fournisseurs (plus les comptes et
   la banque s'il y en a), sans aucune facture à payer ou en retard ; la vue d'ensemble les exclut du total
   à payer. Les achats fournisseurs n'entrent pas dans leurs charges mensuelles (saisie à la main possible).
+  Si le script « Fournisseurs des restaurants » de l'export a été passé (table `pennylane_fournisseurs`),
+  la liste montre tous les fournisseurs de l'annuaire, avec le TTC facturé quand les factures sont là.
   Ne pas passer `019_sans_factures_fournisseurs_restaurants.sql` : elle effaçait les factures, ce qui
   supprimait aussi la liste des fournisseurs (fichier gardé vide).
 

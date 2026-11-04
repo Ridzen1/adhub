@@ -40,7 +40,9 @@ $au = $annee . '-12-31';
 
 $s        = pennylane_synthese($noms, $du, $au);
 $parMois  = pennylane_par_mois($noms, $du, $annee < (int) date('Y') ? $au : date('Y-m-d'));
-$top      = pennylane_top_fournisseurs($noms, $du, $au, $estRestaurant ? 15 : 8);
+// Restaurant : tous ses fournisseurs d'après l'annuaire Pennylane s'il a été importé, sinon ceux des factures
+$top      = ($estRestaurant ? pennylane_annuaire_fournisseurs($noms, $du, $au) : [])
+            ?: pennylane_top_fournisseurs($noms, $du, $au, $estRestaurant ? 15 : 8);
 $ouvertes = pennylane_factures_ouvertes($noms, 'fournisseur', 40);
 $aEncaisser = pennylane_factures_ouvertes($noms, 'client', 20);
 $operations = pennylane_dernieres_transactions($noms, 25);
@@ -235,18 +237,21 @@ require __DIR__ . '/../inc/layout_header.php';
 <div class="row g-4 mb-4">
   <div class="<?= $estRestaurant ? 'col-12' : 'col-xl-5' ?>">
     <div class="card h-100">
-      <div class="card-header">Principaux fournisseurs <span class="text-muted small fw-normal"><?= $annee ?>, TTC</span></div>
-      <div class="card-body p-0">
+      <div class="card-header">
+        <?= $estRestaurant ? 'Fournisseurs' : 'Principaux fournisseurs' ?>
+        <span class="text-muted small fw-normal"><?= $estRestaurant ? count($top) . ' · ' : '' ?><?= $annee ?>, TTC</span>
+      </div>
+      <div class="card-body p-0"<?= $estRestaurant ? ' style="max-height:520px;overflow:auto"' : '' ?>>
         <table class="table mb-0">
           <tbody>
             <?php foreach ($top as $t): ?>
               <tr>
                 <td>
                   <div class="fw-semibold text-truncate" style="max-width:min(260px,48vw)"><?= h($t['tiers']) ?></div>
-                  <div class="meter mt-1" style="width:100%;max-width:min(260px,48vw)"><span style="width:<?= max(2, round((float) $t['ttc'] / $totalTop * 100)) ?>%"></span></div>
+                  <?php if ((float) $t['ttc'] > 0): ?><div class="meter mt-1" style="width:100%;max-width:min(260px,48vw)"><span style="width:<?= max(2, round((float) $t['ttc'] / $totalTop * 100)) ?>%"></span></div><?php endif; ?>
                 </td>
                 <?php if (!$estRestaurant): ?><td class="text-end text-muted small d-none d-sm-table-cell"><?= (int) $t['nb'] ?> fact.</td><?php endif; ?>
-                <td class="text-end fw-semibold"><?= eur((float) $t['ttc']) ?></td>
+                <td class="text-end fw-semibold"><?= (float) $t['ttc'] > 0 ? eur((float) $t['ttc']) : '<span class="text-muted fw-normal">—</span>' ?></td>
               </tr>
             <?php endforeach; ?>
             <?php if (!$top): ?><tr><td class="text-center text-muted py-4">Aucun fournisseur sur <?= $annee ?>.</td></tr><?php endif; ?>

@@ -437,6 +437,33 @@ function pennylane_top_fournisseurs(array $noms, string $du, string $au, int $li
          GROUP BY tiers ORDER BY ttc DESC LIMIT " . max(1, $limite), $p);
 }
 
+/**
+ * Annuaire des fournisseurs (table pennylane_fournisseurs, créée par le script SQL de l'export
+ * « Fournisseurs des restaurants »), avec le TTC facturé sur la période quand les factures sont là.
+ * Même forme que pennylane_top_fournisseurs ; tableau vide si l'annuaire n'a pas été importé.
+ */
+function pennylane_annuaire_fournisseurs(array $noms, string $du, string $au): array
+{
+    if (!$noms || !pennylane_table_existe('pennylane_fournisseurs')) {
+        return [];
+    }
+    [$in, $p] = pl_in($noms);
+    $p += ['du' => $du, 'au' => $au];
+    $avecLien = (bool) get_db()->query("SHOW COLUMNS FROM pennylane_factures LIKE 'fournisseur_id'")->fetch();
+    if (!$avecLien) {
+        return pl_requete(
+            "SELECT nom AS tiers, 0 AS nb, 0 AS ht, 0 AS ttc FROM pennylane_fournisseurs
+             WHERE societe IN ($in) GROUP BY nom ORDER BY nom", $p);
+    }
+    return pl_requete(
+        "SELECT a.nom AS tiers, COUNT(f.id) AS nb, COALESCE(SUM(f.ht), 0) AS ht, COALESCE(SUM(f.ttc), 0) AS ttc
+         FROM pennylane_fournisseurs a
+         LEFT JOIN pennylane_factures f ON f.fournisseur_id = a.id AND f.sens = 'fournisseur'
+              AND f.date_facture BETWEEN :du AND :au
+         WHERE a.societe IN ($in)
+         GROUP BY a.nom ORDER BY ttc DESC, a.nom", $p);
+}
+
 /** Factures restant à payer (fournisseurs) ou à encaisser (clients), les plus anciennes échéances d'abord */
 function pennylane_factures_ouvertes(array $noms, string $sens, int $limite = 50): array
 {
