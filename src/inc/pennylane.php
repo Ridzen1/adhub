@@ -195,7 +195,6 @@ function pennylane_importer_xlsx(string $binaire, string $nomFichier, ?int $user
 
     $res['societes'] = array_keys($res['societes']);
     pennylane_relier_automatiquement();
-    pennylane_retirer_factures_fournisseurs_restaurants();
     pennylane_alimenter_suivi_mensuel();
     pennylane_maj_tresorerie();
     return $res;
@@ -294,30 +293,6 @@ function pennylane_definir_correspondance(string $societe, ?int $projectId): voi
 {
     get_db()->prepare("UPDATE pennylane_societes SET project_id = :p WHERE societe = :s")
         ->execute(['p' => $projectId ?: null, 's' => $societe]);
-}
-
-/**
- * Efface les factures fournisseurs Pennylane des restaurants (choix de la direction :
- * restes à payer et retards ne doivent pas apparaître) et remet à zéro les charges que
- * l'outil en avait tirées dans le suivi mensuel. Une saisie à la main n'est pas touchée.
- * Appelé après chaque import, changement de correspondance, et à l'ouverture des pages
- * concernées (cas du script SQL passé dans phpMyAdmin). Renvoie le nombre de factures effacées.
- */
-function pennylane_retirer_factures_fournisseurs_restaurants(): int
-{
-    $pdo = get_db();
-    $restos = "SELECT p.id FROM projects p JOIN project_types pt ON pt.id = p.project_type_id
-               WHERE pt.code = 'restauration_exploitation'";
-    $n = $pdo->exec(
-        "DELETE f FROM pennylane_factures f
-         JOIN pennylane_societes ps ON ps.societe = f.societe
-         WHERE f.sens = 'fournisseur' AND ps.project_id IN ($restos)"
-    );
-    $pdo->prepare(
-        "UPDATE financial_entries SET charges = 0
-         WHERE notes = :auto AND charges <> 0 AND project_id IN ($restos)"
-    )->execute(['auto' => PL_SUIVI_AUTO]);
-    return $n;
 }
 
 /** Noms Pennylane reliés à une société ADHUB */
@@ -566,13 +541,16 @@ function pennylane_alimenter_suivi_mensuel(): int
         [$in, $params] = pl_in(pennylane_noms_projet($pid));
         $mois = [];
 
-        foreach (pl_requete(
-            "SELECT DATE_FORMAT(date_facture, '%Y-%m-01') AS m, SUM(ht) AS v
-             FROM pennylane_factures
-             WHERE sens = 'fournisseur' AND societe IN ($in) AND date_facture IS NOT NULL
-             GROUP BY m", $params
-        ) as $r) {
-            $mois[$r['m']]['charges'] = (float) $r['v'];
+        // Restaurants : les achats fournisseurs n'entrent pas dans les charges (choix de la direction)
+        if ($projet['code'] !== 'restauration_exploitation') {
+            foreach (pl_requete(
+                "SELECT DATE_FORMAT(date_facture, '%Y-%m-01') AS m, SUM(ht) AS v
+                 FROM pennylane_factures
+                 WHERE sens = 'fournisseur' AND societe IN ($in) AND date_facture IS NOT NULL
+                 GROUP BY m", $params
+            ) as $r) {
+                $mois[$r['m']]['charges'] = (float) $r['v'];
+            }
         }
 
         if ($projet['code'] === 'restauration_exploitation') {

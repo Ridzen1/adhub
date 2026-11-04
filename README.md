@@ -307,10 +307,11 @@ dans **Administration → Import Pennylane** (migration `013_pennylane.sql`).
 - Une société reliée gagne un onglet **Comptabilité** : fournisseurs à payer (dont échus), achats HT,
   flux bancaires, opérations à justifier, principaux fournisseurs, factures ouvertes.
   La vue d'ensemble affiche le total à payer et les sociétés avec des factures échues.
-- Les factures fournisseurs des **restaurants** ne sont pas gardées : effacées après chaque import et à
-  l'ouverture de l'import, de la vue d'ensemble et de leur onglet Comptabilité (cas du script SQL).
-  Leurs charges mensuelles tirées de Pennylane sont remises à zéro ; une saisie à la main reste.
-  Migration `019_sans_factures_fournisseurs_restaurants.sql` pour vider l'existant.
+- **Restaurants** : l'onglet Comptabilité ne montre que les principaux fournisseurs (plus les comptes et
+  la banque s'il y en a), sans aucune facture à payer ou en retard ; la vue d'ensemble les exclut du total
+  à payer. Les achats fournisseurs n'entrent pas dans leurs charges mensuelles (saisie à la main possible).
+  Ne pas passer `019_sans_factures_fournisseurs_restaurants.sql` : elle effaçait les factures, ce qui
+  supprimait aussi la liste des fournisseurs (fichier gardé vide).
 
 ## Immobilier : synchronisation Qalimo
 
