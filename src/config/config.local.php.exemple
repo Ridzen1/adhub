@@ -34,6 +34,18 @@ return [
         'expediteur_nom' => "AD'HUB",
         // Invitations et « mot de passe oublié » : une vraie boîte qui reçoit les réponses
         'expediteur_comptes' => 'contact@ad-hub.fr',
+
+        // RECOMMANDÉ : envoi comme le webmail, avec le mot de passe de la boîte (cPanel ›
+        // Comptes de messagerie). Sans ce bloc, ADHUB utilise mail(), que le relais
+        // d'o2switch peut retenir. Avec ce bloc, TOUS les e-mails (codes de connexion
+        // compris) partent de cette adresse.
+        'smtp' => [
+            'hote'         => 'ad-hub.fr',
+            'port'         => 465,
+            'chiffrement'  => 'ssl',
+            'utilisateur'  => 'contact@ad-hub.fr',
+            'mot_de_passe' => 'A_REMPLACER',
+        ],
     ],
 
     // Adresse publique utilisée dans les liens des e-mails (par défaut https://ad-hub.fr)

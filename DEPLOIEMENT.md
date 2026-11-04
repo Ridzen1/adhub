@@ -235,3 +235,12 @@ tous les comptes actifs sauf soi). La page de connexion propose aussi « Mot de 
   Comptes de messagerie (sinon les e-mails partent mal et les réponses se perdent). Pour en changer :
   `'expediteur_comptes'` dans le bloc `'mail'` de `config.local.php`.
 - Les liens pointent vers `https://ad-hub.fr` (modifiable avec `'url_site'`).
+
+### Envoi par la boîte contact@ad-hub.fr (recommandé)
+
+Avec la fonction `mail()` du serveur, le relais d'o2switch peut retenir les e-mails d'un domaine
+récent (« Accepté » dans Suivre la remise, mais jamais reçu). Pour envoyer comme le webmail :
+dans cPanel › Gestionnaire de fichiers, ouvrir `adhub.fr/config/config.local.php` et ajouter,
+dans le bloc `'mail' => [ … ]`, le bloc `'smtp'` de `config.local.php.exemple` avec le mot de
+passe de la boîte. Si la connexion échoue, ADHUB revient à `mail()` et note l'erreur dans le
+journal d'erreurs PHP.
