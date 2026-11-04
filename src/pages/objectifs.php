@@ -76,7 +76,11 @@ require __DIR__ . '/../inc/layout_header.php';
 <?= company_header($project, 'objectifs') ?>
 
 <?php if (!$migrationOk): ?>
-  <div class="alert alert-warning">Les objectifs ne sont pas encore activés : passez la migration <code>016_objectifs.sql</code>.</div>
+  <?php if (is_direction()): ?>
+    <div class="alert alert-warning">Les objectifs ne sont pas encore activés : passez la migration <code>016_objectifs.sql</code>.</div>
+  <?php else: ?>
+    <div class="card"><div class="card-body empty-state">Les objectifs ne sont pas encore disponibles.</div></div>
+  <?php endif; ?>
   <?php require __DIR__ . '/../inc/layout_footer.php'; exit; ?>
 <?php endif; ?>
 

@@ -89,8 +89,12 @@ require __DIR__ . '/../inc/layout_header.php';
 
 <?php if (!$noms): ?>
   <div class="card"><div class="card-body empty-state">
-    Aucune société Pennylane n'est reliée à <?= h($project['name']) ?>.
-    <?php if (is_direction()): ?>Reliez-la dans <a href="/pages/admin_pennylane.php">Administration → Import Pennylane</a>.<?php endif; ?>
+    <?php if (is_direction()): ?>
+      Aucune société Pennylane n'est reliée à <?= h($project['name']) ?>.
+      Reliez-la dans <a href="/pages/admin_pennylane.php">Administration → Import Pennylane</a>.
+    <?php else: ?>
+      Pas encore de données comptables pour <?= h($project['name']) ?>.
+    <?php endif; ?>
   </div></div>
 <?php else: ?>
 
