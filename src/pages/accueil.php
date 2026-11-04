@@ -3,6 +3,7 @@ require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/financials.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
 require_once __DIR__ . '/../inc/cartes_restaurants.php';
+require_once __DIR__ . '/../inc/cartes_societes.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_login();
 
@@ -19,8 +20,17 @@ $projects = get_visible_projects();
 // (mêmes cartes que la vue d'ensemble de la direction) ; les autres sociétés gardent une carte simple.
 $restaurants = array_values(array_filter($projects, fn($p) =>
     $p['type_code'] === 'restauration_exploitation' && can_view_project((int) $p['id'], 'dashboard')));
-$idsRestos = array_map(fn($p) => (int) $p['id'], $restaurants);
-$autres    = array_values(array_filter($projects, fn($p) => !in_array((int) $p['id'], $idsRestos, true)));
+// Même présentation pour les SCI et les marchands de biens (avec leur trésorerie)
+$familles = ['sci' => [], 'mdb' => []];
+foreach ($projects as $p) {
+    $fam = famille_carte($p['type_code']);
+    if ($fam && can_view_project((int) $p['id'], 'dashboard')) {
+        $familles[$fam][] = $p;
+    }
+}
+$idsCartes = array_map(fn($p) => (int) $p['id'], array_merge($restaurants, ...array_values($familles)));
+$autres    = array_values(array_filter($projects, fn($p) => !in_array((int) $p['id'], $idsCartes, true)));
+$avecCartes = count($idsCartes) > 0;
 
 $pageTitle = 'Mes sociétés';
 require __DIR__ . '/../inc/layout_header.php';
@@ -35,8 +45,9 @@ require __DIR__ . '/../inc/layout_header.php';
   </div></div>
 <?php else: ?>
   <?php afficher_cartes_restaurants($restaurants); ?>
+  <?php foreach ($familles as $fam => $liste) afficher_cartes_famille($fam, $liste); ?>
   <?php if ($autres): ?>
-  <?php if ($restaurants): ?><div class="family-head mb-3"><div class="family-title">Autres sociétés</div></div><?php endif; ?>
+  <?php if ($avecCartes): ?><div class="family-head mb-3"><div class="family-title">Autres sociétés</div></div><?php endif; ?>
   <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
     <?php foreach ($autres as $p):
       $pid     = (int) $p['id'];
