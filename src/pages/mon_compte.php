@@ -63,20 +63,16 @@ require __DIR__ . '/../inc/layout_header.php';
     <div class="card mb-4">
       <div class="card-header">
         Double authentification
-        <?php if ($full['totp_enabled']): ?>
-          <span class="badge bg-success">Activée</span>
-        <?php else: ?>
-          <span class="badge bg-warning">Non activée</span>
-        <?php endif; ?>
+        <span class="badge bg-success">Activée</span>
       </div>
       <div class="card-body d-flex justify-content-between align-items-center gap-3 flex-wrap">
         <div class="text-muted">
           <?= $full['totp_enabled']
               ? 'Un code de votre application est demandé à chaque connexion. ' . codes_secours_restants($user['id']) . ' code(s) de secours restant(s).'
-              : 'Protégez votre compte avec un code à 6 chiffres sur votre téléphone.' ?>
+              : 'Un code à 6 chiffres est envoyé à ' . htmlspecialchars($full['email']) . ' à chaque connexion sur un nouvel appareil.' ?>
         </div>
-        <a href="/pages/double_authentification.php" class="btn btn-sm <?= $full['totp_enabled'] ? 'btn-outline-dark' : 'btn-dark' ?>">
-          <?= $full['totp_enabled'] ? 'Gérer' : 'Activer' ?>
+        <a href="/pages/double_authentification.php" class="btn btn-sm btn-outline-dark">
+          <?= $full['totp_enabled'] ? 'Gérer' : 'Utiliser une application (facultatif)' ?>
         </a>
       </div>
     </div>

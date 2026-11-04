@@ -116,7 +116,7 @@ require __DIR__ . '/../inc/layout_header.php';
 
 <?php if (isset($_GET['created'])): ?><div class="alert alert-success">Utilisateur créé.</div><?php endif; ?>
 <?php if (isset($_GET['granted'])): ?><div class="alert alert-success">Accès attribué.</div><?php endif; ?>
-<?php if (isset($_GET['reset2fa'])): ?><div class="alert alert-success">Double authentification réinitialisée : l'utilisateur la reconfigurera à sa prochaine connexion si elle est obligatoire pour son rôle.</div><?php endif; ?>
+<?php if (isset($_GET['reset2fa'])): ?><div class="alert alert-success">Application d'authentification retirée : l'utilisateur recevra désormais son code de connexion par e-mail.</div><?php endif; ?>
 <?php if (isset($_GET['revoked'])): ?><div class="alert alert-secondary">Accès retiré.</div><?php endif; ?>
 <?php if (isset($_GET['updated'])): ?><div class="alert alert-secondary">Utilisateur mis à jour.</div><?php endif; ?>
 <?php foreach ($errors as $e): ?><div class="alert alert-danger"><?= htmlspecialchars($e) ?></div><?php endforeach; ?>
@@ -174,25 +174,22 @@ require __DIR__ . '/../inc/layout_header.php';
         <?php if (user_sans_mot_de_passe($u)): ?>
           <span class="badge bg-warning" title="Ce compte ne peut pas se connecter tant qu'un mot de passe provisoire n'est pas défini">Mot de passe à définir</span>
         <?php endif; ?>
-        <?php if (str_ends_with($u['email'], '.invalid')): ?>
-          <span class="badge bg-warning" title="Adresse provisoire, à remplacer par la vraie">E-mail à compléter</span>
-        <?php endif; ?>
         <?php if ($u['totp_enabled']): ?>
-          <span class="badge bg-success" title="Double authentification activée">2FA</span>
-        <?php elseif (double_auth_est_obligatoire($u['role_code'])): ?>
-          <span class="badge bg-warning" title="Obligatoire pour ce rôle, sera demandée à la prochaine connexion">2FA à activer</span>
+          <span class="badge bg-success" title="Code de l'application d'authentification à chaque connexion (ou par e-mail en secours)">2FA appli</span>
+        <?php elseif (email_valide_pour_envoi($u['email'])): ?>
+          <span class="badge bg-success" title="Code envoyé par e-mail à chaque connexion">2FA e-mail</span>
         <?php else: ?>
-          <span class="badge bg-secondary" title="Connexion par mot de passe seul">Sans 2FA</span>
+          <span class="badge bg-warning" title="Le code de connexion ne peut pas être envoyé : ce compte ne peut pas se connecter tant que l'adresse n'est pas corrigée (bouton Modifier)">E-mail à corriger</span>
         <?php endif; ?>
       </div>
       <div class="d-flex gap-2">
       <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#edit-<?= (int) $u['id'] ?>">Modifier</button>
       <?php if ($u['totp_enabled'] && (int) $u['id'] !== current_user()['id']): ?>
-        <form method="post" onsubmit="return confirm('Réinitialiser la double authentification de cet utilisateur ? Son application ne sera plus reconnue.');">
+        <form method="post" onsubmit="return confirm('Retirer l\'application d\'authentification de cet utilisateur ? Il recevra ses codes par e-mail.');">
           <?= csrf_champ() ?>
           <input type="hidden" name="action" value="reset_2fa">
           <input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
-          <button type="submit" class="btn btn-sm btn-outline-danger">Réinitialiser la 2FA</button>
+          <button type="submit" class="btn btn-sm btn-outline-danger">Retirer l'appli 2FA</button>
         </form>
       <?php endif; ?>
       <form method="post">

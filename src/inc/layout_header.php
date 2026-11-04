@@ -176,6 +176,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 <?php if (isset($_SESSION['flash_secours'])): $restantsSecours = (int) $_SESSION['flash_secours']; unset($_SESSION['flash_secours']); ?>
   <div class="alert alert-warning">
     Vous vous êtes connecté avec un code de secours. Il vous en reste <strong><?= $restantsSecours ?></strong>.
-    Si vous avez perdu votre téléphone, <a href="/pages/double_authentification.php">changez d'appareil</a> dès que possible.
+    Si vous avez perdu votre téléphone, <a href="/pages/double_authentification.php">changez d'appareil</a> dès que possible
+    (le code par e-mail reste toujours disponible à la connexion).
   </div>
 <?php endif; ?>
