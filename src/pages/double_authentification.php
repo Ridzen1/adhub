@@ -78,13 +78,22 @@ $pageTitle = 'Double authentification';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<?= page_header('Double authentification', 'Un code à 6 chiffres sur votre téléphone, demandé à chaque connexion en plus du mot de passe.', '', 'Mon compte') ?>
+<?= page_header('Double authentification', 'Un code à 6 chiffres demandé à chaque connexion sur un nouvel appareil, en plus du mot de passe.', '', 'Mon compte') ?>
+
+<?php if (!$compte['totp_enabled']): ?>
+  <div class="alert alert-secondary d-flex gap-2 align-items-start">
+    <?= icon('check', 18) ?>
+    <div>Votre compte est déjà protégé : un code est envoyé à <strong><?= h($compte['email']) ?></strong> à chaque connexion.
+      Rien d'autre à faire. Si vous préférez, vous pouvez utiliser à la place une application d'authentification
+      sur votre téléphone (facultatif) :</div>
+  </div>
+<?php endif; ?>
 
 <?php foreach ($errors as $e): ?>
   <div class="alert alert-danger"><?= h($e) ?></div>
 <?php endforeach; ?>
 <?php if (isset($_GET['desactive'])): ?>
-  <div class="alert alert-secondary">Double authentification désactivée.</div>
+  <div class="alert alert-secondary">Application retirée : vos codes de connexion arrivent de nouveau par e-mail.</div>
 <?php endif; ?>
 
 <?php if ($codesAffiches): ?>
@@ -177,9 +186,10 @@ require __DIR__ . '/../inc/layout_header.php';
     </div>
     <div class="col-lg-5">
       <div class="card h-100">
-        <div class="card-header">Pourquoi ?</div>
+        <div class="card-header">Pourquoi une application ?</div>
         <div class="card-body text-muted">
-          <p>Avec la double authentification, un mot de passe volé ou deviné ne suffit plus : il faut aussi votre téléphone.</p>
+          <p>Le code s'affiche directement sur votre téléphone, sans attendre d'e-mail, même sans réseau.
+            Le code par e-mail reste possible en secours à la connexion.</p>
           <p class="mb-0">Après l'activation, vous recevrez 10 <strong class="text-body">codes de secours</strong> à conserver,
             pour vous connecter si vous perdez votre téléphone.</p>
         </div>
@@ -226,19 +236,19 @@ require __DIR__ . '/../inc/layout_header.php';
     </div>
     <div class="col-lg-6">
       <div class="card h-100">
-        <div class="card-header"><?= $obligatoire ? "Changer de téléphone" : 'Désactiver' ?></div>
+        <div class="card-header"><?= $obligatoire ? "Changer de téléphone" : "Changer de téléphone ou revenir à l'e-mail" ?></div>
         <div class="card-body">
           <p class="text-muted">
             <?= $obligatoire
                 ? "Supprime l'appareil actuel ; vous configurerez aussitôt le nouveau (la double authentification reste obligatoire pour votre rôle)."
-                : "Votre compte sera de nouveau protégé par le mot de passe seul." ?>
+                : "Retire l'application actuelle : vos codes de connexion arriveront de nouveau par e-mail. Pour un nouveau téléphone, réactivez ensuite l'application ici." ?>
           </p>
           <form method="post" class="row g-2" autocomplete="off">
             <?= csrf_champ() ?>
             <input type="hidden" name="action" value="desactiver">
             <div class="col-sm-6"><input type="password" name="password" class="form-control" required placeholder="Mot de passe" autocomplete="current-password"></div>
             <div class="col-sm-6"><input type="text" name="code" class="form-control" required placeholder="Code ou code de secours"></div>
-            <div class="col-12"><button type="submit" class="btn btn-outline-danger"><?= $obligatoire ? "Changer de téléphone" : 'Désactiver la double authentification' ?></button></div>
+            <div class="col-12"><button type="submit" class="btn btn-outline-danger"><?= $obligatoire ? "Changer de téléphone" : "Retirer l'application" ?></button></div>
           </form>
         </div>
       </div>

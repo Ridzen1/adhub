@@ -61,12 +61,13 @@ function ouvrir_session(array $user): void
 
 /**
  * Connexion par mot de passe seul. Retourne false si les identifiants sont faux
- * ou si un code de double authentification est encore nécessaire.
+ * ou si un code de double authentification est encore nécessaire (cas normal).
  */
 function attempt_login(string $email, string $password): bool
 {
+    require_once __DIR__ . '/double_auth.php';
     $user = verifier_identifiants($email, $password);
-    if ($user === null || !empty($user['totp_enabled'])) {
+    if ($user === null || double_auth_requise($user)) {
         return false;
     }
     ouvrir_session($user);

@@ -26,4 +26,16 @@ return [
         // Mot de passe généré par cPanel — long et aléatoire
         'pass' => 'A_REMPLACER',
     ],
+
+    // Envoi des e-mails (code de connexion à 6 chiffres). Facultatif : sans ce bloc,
+    // ADHUB envoie depuis ne-pas-repondre@ad-hub.fr avec la fonction mail() d'o2switch.
+    'mail' => [
+        'expediteur'     => 'ne-pas-repondre@ad-hub.fr', // adresse d'un domaine hébergé sur le compte o2switch
+        'expediteur_nom' => "AD'HUB",
+    ],
+
+    // Interrupteur de secours : mettre false UNIQUEMENT si les e-mails n'arrivent plus
+    // et que plus personne ne peut se connecter. La connexion repasse alors au mot de
+    // passe seul (sauf comptes avec application d'authentification). Remettre true ensuite.
+    'double_auth_email' => true,
 ];

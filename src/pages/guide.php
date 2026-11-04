@@ -31,14 +31,15 @@ HTML,
   <li>Connectez-vous avec l'adresse e-mail et le mot de passe reçus.</li>
   <li>Changez ce mot de passe dès la première connexion : menu de votre nom en haut à droite →
       <a href="/pages/mon_compte.php">Mon compte</a>.</li>
-  <li>Activez la <a href="/pages/double_authentification.php">double authentification</a> :
-      installez une application d'authentification sur votre téléphone (Google Authenticator,
-      Microsoft Authenticator…), scannez le QR code, puis tapez le code à 6 chiffres affiché.</li>
-  <li>Gardez précieusement les 10 <strong>codes de secours</strong> affichés à ce moment-là
-      (ils ne sont montrés qu'une fois) : ils servent si vous perdez votre téléphone.</li>
+  <li>Après le mot de passe, ADHUB vous envoie un <strong>code à 6 chiffres par e-mail</strong>
+      (valable 10 minutes) : tapez-le pour entrer. Pas reçu ? Regardez dans les courriers indésirables,
+      ou cliquez sur « Renvoyer un code ».</li>
+  <li>Laissez cochée la case « Ne plus demander de code sur cet appareil » sur votre ordinateur
+      ou téléphone personnel : le code ne sera redemandé que dans 30 jours. Décochez-la sur un poste partagé.</li>
 </ol>
-<p class="guide-note">La double authentification est obligatoire pour la direction et conseillée pour tous.
-Téléphone perdu et plus de code de secours : demandez à la direction de la réinitialiser.</p>
+<p class="guide-note">La double authentification est obligatoire pour tous les comptes. Ceux qui le souhaitent
+peuvent utiliser une <a href="/pages/double_authentification.php">application d'authentification</a>
+(Google Authenticator…) à la place de l'e-mail. Changer de mot de passe oblige à ressaisir un code sur tous les appareils.</p>
 HTML,
     ],
     [
@@ -262,8 +263,9 @@ HTML,
   <li>Le rôle <strong>Direction</strong> voit toutes les sociétés et l'administration, sans attribution.</li>
   <li>Les autres rôles (Associé, Gestionnaire, Externe) ne voient <strong>que</strong> les sociétés attribuées.
       Sans attribution, le compte ne voit rien.</li>
-  <li>Un compte peut être désactivé à tout moment. La double authentification d'un utilisateur se
-      réinitialise depuis cette même page.</li>
+  <li>Un compte peut être désactivé à tout moment. Chaque compte doit avoir une <strong>vraie adresse e-mail</strong> :
+      le code de connexion y est envoyé (badge « E-mail à corriger » sinon). L'application d'authentification
+      d'un utilisateur qui a perdu son téléphone se retire depuis cette même page.</li>
 </ul>
 HTML,
     ],
@@ -339,8 +341,11 @@ HTML,
       CA TTC sauf mention HT.</dd>
   <dt>Je ne vois pas une société, ou pas un onglet.</dt>
   <dd>Votre accès ne la couvre pas. Demandez à la direction de vous l'attribuer.</dd>
-  <dt>J'ai changé de téléphone.</dt>
-  <dd>Connectez-vous avec un code de secours, puis <em>Double authentification → Changer de téléphone</em>.</dd>
+  <dt>Je ne reçois pas le code par e-mail.</dt>
+  <dd>Attendez une minute, regardez dans les courriers indésirables, puis cliquez sur « Renvoyer un code ».
+      Si l'adresse de votre compte n'est plus la bonne, demandez à la direction de la corriger.</dd>
+  <dt>J'utilise une application d'authentification et j'ai changé de téléphone.</dt>
+  <dd>Choisissez « Recevoir un code par e-mail » à la connexion, puis <em>Double authentification → Changer de téléphone</em>.</dd>
 </dl>
 HTML,
     ],

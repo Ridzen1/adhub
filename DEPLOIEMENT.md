@@ -203,3 +203,20 @@ juste après la mise en ligne.
 | Redirection en boucle | Certificat SSL pas encore actif — refaire l'étape 7 |
 | Le fichier `config.local.php` s'affiche | `.htaccess` de `/config` absent — **à corriger tout de suite** |
 | Erreur SQL à l'import | Migrations exécutées dans le désordre |
+| Les codes de connexion n'arrivent pas par e-mail | Voir « Double authentification par e-mail » ci-dessous |
+
+---
+
+## Double authentification par e-mail
+
+Chaque connexion depuis un nouvel appareil demande un code à 6 chiffres envoyé par e-mail
+(valable 10 minutes ; l'appareil peut être retenu 30 jours). Aucune migration, aucun service payant :
+l'envoi passe par la fonction `mail()` d'o2switch, depuis `ne-pas-repondre@ad-hub.fr`.
+
+- Pour changer l'expéditeur : bloc `'mail'` de `config.local.php` (voir `config.local.php.exemple`).
+  L'adresse doit être sur un domaine hébergé sur le compte o2switch, sinon les messages finissent en indésirables.
+- Un compte sans adresse e-mail valide (`.invalid`, `example.com`…) ne peut plus se connecter :
+  badge « E-mail à corriger » dans Administration › Utilisateurs.
+- **Secours si plus personne ne reçoit de code** : dans cPanel › Gestionnaire de fichiers, ouvrir
+  `adhub.fr/config/config.local.php` et ajouter `'double_auth_email' => false,` dans le tableau.
+  La connexion repasse au mot de passe seul. Retirer la ligne dès que l'envoi refonctionne.

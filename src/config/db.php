@@ -10,15 +10,23 @@
  * Ce fonctionnement permet de déployer le même code partout : sur l'hébergement,
  * seul config.local.php diffère, et il n'est jamais copié depuis le poste de dev.
  */
+/** Contenu complet de config.local.php (tableau vide en local, sans ce fichier) */
+function config_locale(): array
+{
+    static $conf = null;
+    if ($conf === null) {
+        $fichierLocal = __DIR__ . '/config.local.php';
+        $lu = is_readable($fichierLocal) ? require $fichierLocal : [];
+        $conf = is_array($lu) ? $lu : [];
+    }
+    return $conf;
+}
+
 function get_db_config(): array
 {
-    $fichierLocal = __DIR__ . '/config.local.php';
-
-    if (is_readable($fichierLocal)) {
-        $conf = require $fichierLocal;
-        if (is_array($conf) && isset($conf['db'])) {
-            return $conf['db'];
-        }
+    $conf = config_locale();
+    if (isset($conf['db'])) {
+        return $conf['db'];
     }
 
     return [
