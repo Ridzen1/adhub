@@ -6,6 +6,7 @@ require_once __DIR__ . '/../inc/indicateurs.php';
 require_once __DIR__ . '/../inc/pennylane.php';
 require_once __DIR__ . '/../inc/objectifs.php';
 require_once __DIR__ . '/../inc/qalimo.php';
+require_once __DIR__ . '/../inc/cartes_restaurants.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_direction(); // vue consolidée : direction uniquement
 
@@ -70,23 +71,6 @@ $nbPerimes    = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !==
 $nbSansSolde  = count(array_filter($projects, fn($p) => $p['solde_bancaire'] === null));
 $nbNegatifs   = count(array_filter($projects, fn($p) => $p['solde_bancaire'] !== null && (float) $p['solde_bancaire'] < 0));
 
-// Restaurants : chacun a ses propres indicateurs, jamais additionnés ni mis côte
-// à côte dans un même graphique (ils ne proposent pas les mêmes services).
-// La seule comparaison faite est celle de chaque restaurant avec lui-même à N-1.
-$idsRestos = array_map(fn($p) => (int) $p['id'], $groupes['restaurants']);
-$bMois = bornes_periode('mois');
-$bHier = bornes_periode('jour');
-
-$aujourdhui = new DateTimeImmutable('today');
-$du30 = $aujourdhui->modify('-30 days')->format('Y-m-d');
-$au30 = $aujourdhui->modify('-1 day')->format('Y-m-d');
-$quotidien = ca_quotidien_societes($idsRestos, $du30, $au30);
-
-$caMoisParResto   = ca_par_societe($idsRestos, $bMois['debut'], $bMois['fin']);
-$caN1ParResto     = ca_par_societe($idsRestos, $bMois['n1_debut'], $bMois['n1_fin']);
-$caHierParResto   = ca_par_societe($idsRestos, $bHier['debut'], $bHier['fin']);
-$caHierN1ParResto = ca_par_societe($idsRestos, $bHier['n1_debut'], $bHier['n1_fin']);
-
 $lotsTotal = 0;
 $lotsLoues = 0;
 foreach ($groupes['sci'] as $p) {
@@ -137,7 +121,6 @@ foreach ($sections as $cle => $s) {
     }
 }
 
-$moisLabel = format_mois_fr((int) date('Y'), (int) date('n'));
 
 $pageTitle = "Vue d'ensemble";
 require __DIR__ . '/../inc/layout_header.php';
@@ -213,63 +196,7 @@ require __DIR__ . '/../inc/layout_header.php';
   </div>
 <?php endif; ?>
 
-<?php if ($idsRestos): ?>
-<div class="family-head mb-3">
-  <span class="family-icon t-resto"><?= icon('utensils', 18) ?></span>
-  <div>
-    <div class="family-title">Restaurants</div>
-    <div class="family-sub">Chaque restaurant est suivi séparément et comparé uniquement à lui-même l'an dernier.</div>
-  </div>
-</div>
-<div class="row row-cols-1 row-cols-xl-2 g-4 mb-4">
-  <?php foreach ($groupes['restaurants'] as $p):
-    $pid    = (int) $p['id'];
-    $caMois = $caMoisParResto[$pid] ?? 0.0;
-    $caHier = $caHierParResto[$pid] ?? null;
-    $objectif = etat_objectif($pid);
-  ?>
-    <div class="col">
-      <div class="card h-100 resto-card">
-        <div class="card-header">
-          <a href="/pages/project_dashboard.php?id=<?= $pid ?>" class="row-link"><?= h($p['name']) ?></a>
-          <span class="card-hint">Trésorerie <?= afficher_solde($p) ?></span>
-        </div>
-        <div class="card-body">
-          <div class="row g-3 mb-3">
-            <div class="col-6">
-              <div class="kpi-label">CA hier</div>
-              <div class="resto-value num"><?= $caHier !== null ? eur($caHier) : '<span class="text-muted fw-normal">—</span>' ?></div>
-              <div class="kpi-foot mt-1">
-                <?= $caHier !== null && isset($caHierN1ParResto[$pid])
-                    ? delta(ecart_pct($caHier, $caHierN1ParResto[$pid]), false, 'vs même jour N-1')
-                    : '<span>' . date('d/m', strtotime($bHier['debut'])) . '</span>' ?>
-              </div>
-            </div>
-            <div class="col-6">
-              <div class="kpi-label">CA · <?= h($moisLabel) ?></div>
-              <div class="resto-value num"><?= $caMois > 0 ? eur($caMois) : '<span class="text-muted fw-normal fs-6">pas de saisie</span>' ?></div>
-              <div class="kpi-foot mt-1">
-                <?= isset($caN1ParResto[$pid]) ? delta(ecart_pct($caMois, $caN1ParResto[$pid]), false, 'vs N-1') : '<span>Pas de comparaison N-1</span>' ?>
-              </div>
-            </div>
-          </div>
-          <?php if ($objectif): ?>
-            <div class="mb-3"><?= bloc_objectif($objectif, $p['name'], true) ?></div>
-          <?php elseif (objectifs_disponibles()): ?>
-            <div class="goal-empty mb-3"><?= icon('target', 14) ?> Pas d'objectif ce mois-ci · <a href="/pages/objectifs.php?id=<?= $pid ?>#fixer">en fixer un</a></div>
-          <?php endif; ?>
-          <div class="kpi-label mb-1">30 derniers jours · TTC</div>
-          <?php if (array_sum($quotidien['series'][$pid] ?? []) > 0): ?>
-            <div class="chart-box xs"><canvas id="chartResto<?= $pid ?>"></canvas></div>
-          <?php else: ?>
-            <div class="text-muted small py-3">Aucune vente remontée sur les 30 derniers jours.</div>
-          <?php endif; ?>
-        </div>
-      </div>
-    </div>
-  <?php endforeach; ?>
-</div>
-<?php endif; ?>
+<?php afficher_cartes_restaurants($groupes['restaurants']); ?>
 
 <div class="row g-4 mb-4">
 <?php if ($plRetards): ?>
@@ -376,24 +303,6 @@ require __DIR__ . '/../inc/layout_header.php';
 
 <script>
 (function () {
-  var c = ADHUB.colors;
-  var labels = <?= json_encode($quotidien['labels']) ?>;
-  // Un graphique par restaurant, chacun à sa propre échelle : pas de comparaison visuelle entre eux.
-  var series = <?= json_encode((object) $quotidien['series']) ?>;
-  Object.keys(series).forEach(function (id) {
-    var el = document.getElementById('chartResto' + id);
-    if (!el) return;
-    new Chart(el, {
-      type: 'bar',
-      data: { labels: labels, datasets: [{ label: 'CA', data: series[id], backgroundColor: c.green, maxBarThickness: 14 }] },
-      options: {
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } },
-        scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 16 } },
-                  y: { beginAtZero: true, ticks: { maxTicksLimit: 4, callback: function (v) { return ADHUB.eurShort(v); } } } }
-      }
-    });
-  });
-
   if (document.getElementById('chartTreso')) new Chart(document.getElementById('chartTreso'), {
     type: 'doughnut',
     data: {
