@@ -57,7 +57,11 @@ require __DIR__ . '/../inc/layout_header.php';
 ) ?>
 
 <?php if (!$migrationOk): ?>
-  <div class="alert alert-warning">La boîte à idées n'est pas encore activée (migration <code>020_boite_a_idees.sql</code> à passer).</div>
+  <?php if (is_direction()): ?>
+    <div class="alert alert-warning">La boîte à idées n'est pas encore activée (migration <code>020_boite_a_idees.sql</code> à passer).</div>
+  <?php else: ?>
+    <div class="card"><div class="card-body empty-state">La boîte à idées n'est pas encore disponible.</div></div>
+  <?php endif; ?>
 <?php else: ?>
 
 <?php if (isset($_GET['envoye'])): ?>

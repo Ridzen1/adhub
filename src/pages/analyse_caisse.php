@@ -99,7 +99,8 @@ require __DIR__ . '/../inc/layout_header.php';
 ?>
 
 <?= company_header($project, 'analyse', '',
-      $sources ? 'Caisse ' . h(implode(' + ', array_map(fn($s) => CAISSE_SOURCES[$s], $sources))) : 'Aucune caisse reliée') ?>
+      $sources ? 'Caisse ' . h(implode(' + ', array_map(fn($s) => CAISSE_SOURCES[$s], $sources)))
+               : (is_direction() ? 'Aucune caisse reliée' : '')) ?>
 
 <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
   <ul class="nav nav-pills">
@@ -128,7 +129,7 @@ require __DIR__ . '/../inc/layout_header.php';
   <?php endif; ?>
 </p>
 
-<?php if (!$sources): ?>
+<?php if (!$sources && is_direction()): // message de configuration, réservé à la direction ?>
   <div class="alert alert-secondary">
     Aucune caisse n'est reliée à ce restaurant : les analyses détaillées apparaîtront après
     la première synchronisation (voir <code>config/caisses.local.php</code>).
