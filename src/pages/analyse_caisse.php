@@ -165,7 +165,7 @@ require __DIR__ . '/../inc/layout_header.php';
   <?php if ($mixTot > 0): ?>
     <?= kpi('Solide / liquide', pct($kpis['ca_solide'], $mixTot) . ' <small>/ ' . pct($kpis['ca_liquide'], $mixTot) . '</small>', [
           'icon' => 'pie',
-          'foot' => '<div class="meter" style="flex:1;min-width:80px"><span style="width:' . round($kpis['ca_solide'] / $mixTot * 100) . '%;background:#0F7B55"></span></div>',
+          'foot' => '<div class="meter" style="flex:1;min-width:80px"><span style="width:' . round($kpis['ca_solide'] / $mixTot * 100) . '%;background:var(--ad-green)"></span></div>',
         ]) ?>
   <?php endif; ?>
   <?php if ($kpis['remises'] > 0 || $kpis['offerts'] > 0): ?>
@@ -480,11 +480,11 @@ new Chart(document.getElementById('chartJours'), {
   data: {
     labels: <?= json_encode(array_map(fn($j) => date('d/m', strtotime($j['jour'])), $parJour)) ?>,
     datasets: [
-      { label: 'Solide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_solide'], $parJour)) ?>, backgroundColor: '#0F7B55', stack: 'ca', maxBarThickness: 26 },
-      { label: 'Liquide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_liquide'], $parJour)) ?>, backgroundColor: '#1F5FAD', stack: 'ca', maxBarThickness: 26 },
+      { label: 'Solide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_solide'], $parJour)) ?>, backgroundColor: ADHUB.colors.green, stack: 'ca', maxBarThickness: 26 },
+      { label: 'Liquide', data: <?= json_encode(array_map(fn($j) => (float) $j['ca_liquide'], $parJour)) ?>, backgroundColor: ADHUB.colors.blue, stack: 'ca', maxBarThickness: 26 },
       { label: 'Autre / non réparti', data: <?= json_encode(array_map(
           fn($j) => max(0, round((float) $j['ca_ttc'] - (float) $j['ca_solide'] - (float) $j['ca_liquide'], 2)), $parJour)) ?>,
-        backgroundColor: '#CBD2DB', stack: 'ca', maxBarThickness: 26 }
+        backgroundColor: ADHUB.colors.grey, stack: 'ca', maxBarThickness: 26 }
     ]
   },
   options: { plugins: { legend: { position: 'top', align: 'end' }, tooltip: { callbacks: { label: function (x) { return ' ' + x.dataset.label + ' : ' + ADHUB.eur(x.raw); } } } },
@@ -499,7 +499,7 @@ new Chart(document.getElementById('chartHeures'), {
   data: {
     labels: <?= json_encode(array_map(fn($h) => $h['heure'] . 'h', $parHeure)) ?>,
     datasets: [{ label: 'CA TTC', data: <?= json_encode(array_map(fn($h) => (float) $h['ttc'], $parHeure)) ?>,
-                 backgroundColor: '#C8A84B', maxBarThickness: 34 }]
+                 backgroundColor: ADHUB.colors.gold, maxBarThickness: 34 }]
   },
   options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } },
              scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: function (v) { return ADHUB.eurShort(v); } } } } }
@@ -514,7 +514,7 @@ new Chart(document.getElementById('chartCategories'), {
     datasets: [{
       data: <?= json_encode(array_map(fn($c) => (float) $c['ttc'], $categories)) ?>,
       backgroundColor: <?= json_encode(array_map(function ($c, $i) {
-          $palette = ['#1F5FAD', '#C8A84B', '#0F7B55', '#7C5CC4', '#D9673B', '#2BA0B5', '#0E1C2B', '#81B29A', '#E3B5A4', '#9CA3AF', '#B5838D', '#457B9D'];
+          $palette = ['#1F5FAD', '#C8A84B', '#0F7B55', '#7C5CC4', '#D9673B', '#2BA0B5', '#4A6788', '#81B29A', '#E3B5A4', '#9CA3AF', '#B5838D', '#457B9D'];
           return $palette[$i % count($palette)];
       }, $categories, array_keys($categories))) ?>
     }]

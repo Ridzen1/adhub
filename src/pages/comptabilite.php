@@ -220,10 +220,10 @@ require __DIR__ . '/../inc/layout_header.php';
     <?= $estRestaurant ? 'Flux bancaires par mois' : ($avecBanque ? 'Flux bancaires et achats par mois' : 'Achats par mois') ?>
     <span class="legend-inline">
       <?php if ($avecBanque): ?>
-        <span><i style="background:#0F7B55"></i>Encaissements</span>
-        <span><i style="background:#C2362F"></i>Décaissements</span>
+        <span><i style="background:var(--ad-green)"></i>Encaissements</span>
+        <span><i style="background:var(--ad-red)"></i>Décaissements</span>
       <?php endif; ?>
-      <?php if (!$estRestaurant): ?><span><i style="background:<?= $avecBanque ? '#0E1C2B' : '#1F5FAD' ?>"></i>Achats HT</span><?php endif; ?>
+      <?php if (!$estRestaurant): ?><span><i style="background:<?= $avecBanque ? 'var(--ad-ink)' : 'var(--ad-blue)' ?>"></i>Achats HT</span><?php endif; ?>
     </span>
   </div>
   <div class="card-body"><div class="chart-box"><canvas id="chartCompta"></canvas></div></div>
@@ -357,7 +357,7 @@ require __DIR__ . '/../inc/layout_header.php';
   datasets.push({ type: 'bar', label: 'Encaissements', data: mois.map(function (m) { return m.encaissements; }), backgroundColor: c.green, maxBarThickness: 22, order: 1 });
   datasets.push({ type: 'bar', label: 'Décaissements', data: mois.map(function (m) { return m.decaissements; }), backgroundColor: c.red, maxBarThickness: 22, order: 1 });
   <?php if (!$estRestaurant): ?>
-  datasets.push({ type: 'line', label: 'Achats HT', data: mois.map(function (m) { return m.achats; }), borderColor: c.navy, backgroundColor: c.navy, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, tension: .3, order: 0 });
+  datasets.push({ type: 'line', label: 'Achats HT', data: mois.map(function (m) { return m.achats; }), borderColor: c.navy, backgroundColor: c.navy, pointRadius: 3, pointBackgroundColor: ADHUB.colors.surface, pointBorderWidth: 2, tension: .3, order: 0 });
   <?php endif; ?>
   <?php else: ?>
   datasets.push({ type: 'bar', label: 'Achats HT', data: mois.map(function (m) { return m.achats; }), backgroundColor: c.blue, maxBarThickness: 28 });

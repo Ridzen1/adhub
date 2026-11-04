@@ -103,7 +103,7 @@ require __DIR__ . '/../inc/layout_header.php';
   <div class="card mb-4">
     <div class="card-header">
       Chiffre d'affaires jour par jour
-      <span class="legend-inline"><span><i style="background:#1F5FAD"></i>Période</span><span><i style="background:#CBD2DB"></i>N-1</span></span>
+      <span class="legend-inline"><span><i style="background:var(--ad-blue)"></i>Période</span><span><i style="background:var(--ad-chart-grey)"></i>N-1</span></span>
     </div>
     <div class="card-body"><div class="chart-box"><canvas id="chartPeriode"></canvas></div></div>
   </div>
@@ -157,13 +157,13 @@ new Chart(document.getElementById('chartPeriode'), {
       {
         label: 'CA',
         data: <?= json_encode(array_column($serie, 'ca')) ?>,
-        backgroundColor: '#1F5FAD',
+        backgroundColor: ADHUB.colors.blue,
         maxBarThickness: 28
       },
       {
         label: 'CA N-1',
         data: <?= json_encode(array_column($serie, 'ca_n1')) ?>,
-        backgroundColor: '#CBD2DB',
+        backgroundColor: ADHUB.colors.grey,
         maxBarThickness: 28
       }
     ]

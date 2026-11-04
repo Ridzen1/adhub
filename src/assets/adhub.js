@@ -3,10 +3,20 @@
  * Chargé dans <head>, avant les scripts des pages.
  */
 (function () {
+  // Thème sombre : posé sur <html data-bs-theme> par le serveur ou le script de l'en-tête
+  var sombre = document.documentElement.getAttribute('data-bs-theme') === 'dark';
   var C = window.ADHUB = {
-    colors: {
+    sombre: sombre,
+    colors: sombre ? {
+      // navy = « encre » des graphiques (courbe de résultat…) : claire sur fond sombre
+      navy: '#DCE3EC', blue: '#4B8FE0', blueSoft: 'rgba(75,143,224,.18)', gold: '#D4B45A',
+      green: '#2FB37F', red: '#E5675E', grey: '#3B4F66', muted: '#93A1B3', grid: '#22344A',
+      surface: '#122130', n1: '#7D8DA1',
+      series: ['#4B8FE0', '#D4B45A', '#2FB37F', '#9B7FE0', '#E8814F', '#3DB8CC', '#7D8DA1']
+    } : {
       navy: '#0E1C2B', blue: '#1F5FAD', blueSoft: 'rgba(31,95,173,.12)', gold: '#C8A84B',
       green: '#0F7B55', red: '#C2362F', grey: '#CBD2DB', muted: '#6B7280', grid: '#EEF0F3',
+      surface: '#FFFFFF', n1: '#AEB6C2',
       series: ['#1F5FAD', '#C8A84B', '#0F7B55', '#7C5CC4', '#D9673B', '#2BA0B5', '#9CA3AF']
     },
     /** 12 345 € */
@@ -46,7 +56,7 @@
     d.plugins.legend.labels.boxWidth = 8;
     d.plugins.legend.labels.boxHeight = 8;
     d.plugins.legend.labels.padding = 16;
-    d.plugins.tooltip.backgroundColor = '#0E1C2B';
+    d.plugins.tooltip.backgroundColor = sombre ? '#22364C' : '#0E1C2B';
     d.plugins.tooltip.titleColor = '#fff';
     d.plugins.tooltip.bodyColor = 'rgba(255,255,255,.85)';
     d.plugins.tooltip.padding = 10;
@@ -67,6 +77,17 @@
       Chart.defaults.scales.category.ticks.autoSkipPadding = 10;
     }
   }
+  // Bouton clair / sombre de la barre du haut : le choix est gardé un an dans un cookie
+  // (lu par le serveur au chargement suivant). Les graphiques sont redessinés en
+  // rechargeant la page, leurs couleurs étant fixées à leur création.
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('[data-theme-toggle]')) return;
+    var nouveau = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+    document.cookie = 'hub_theme=' + nouveau + '; path=/; max-age=31536000; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+    document.documentElement.setAttribute('data-bs-theme', nouveau);
+    if (window.Chart && Chart.instances && Object.keys(Chart.instances).length) location.reload();
+  });
+
   /** Position de légende adaptée à la largeur d'écran */
   C.legendPos = function (large) { return window.innerWidth < 768 ? 'bottom' : (large || 'right'); };
 
