@@ -224,7 +224,7 @@ require __DIR__ . '/../inc/layout_header.php';
         ]) ?>
     <?= kpi('Impayés locataires', '<span class="' . ($immo['impayes'] > 0 ? 'text-danger' : '') . '">' . eur($immo['impayes']) . '</span>', [
           'icon' => 'alert',
-          'foot' => $immo['nb_impayes'] ? '<span>' . $immo['nb_impayes'] . ' bail' . ($immo['nb_impayes'] > 1 ? 'x' : '') . ' en retard</span>' : '<span>Aucun retard</span>',
+          'foot' => $immo['nb_impayes'] ? '<span>' . $immo['nb_impayes'] . ($immo['nb_impayes'] > 1 ? ' baux' : ' bail') . ' en retard</span>' : '<span>Aucun retard</span>',
         ]) ?>
     <?= kpi('Prochaine échéance de bail', $ech ? date('d/m/Y', strtotime($ech['fin'])) : '—', [
           'icon' => 'calendar',
