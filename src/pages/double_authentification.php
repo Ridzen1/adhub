@@ -88,8 +88,8 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php endif; ?>
 
 <?php if ($codesAffiches): ?>
-  <div class="card mb-4" style="border-color:#BFE3D2">
-    <div class="card-header" style="background:var(--ad-green-soft);color:#0A5A3E">
+  <div class="card mb-4" style="border-color:var(--ad-green-border)">
+    <div class="card-header" style="background:var(--ad-green-soft);color:var(--ad-green-ink)">
       <span class="d-flex align-items-center gap-2"><?= icon('check', 16) ?>
         <?= isset($_GET['active']) ? 'Double authentification activée' : 'Nouveaux codes de secours créés' ?></span>
     </div>

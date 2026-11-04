@@ -68,7 +68,7 @@ $encoreActif = isset($_SESSION['auth_attente']);
 $authTitre = 'Vérification';
 require __DIR__ . '/../inc/layout_auth_header.php';
 ?>
-        <div class="kpi-icon mb-3" style="display:flex;width:44px;height:44px;border-radius:12px;background:var(--ad-gold-soft);color:#7A5F12">
+        <div class="kpi-icon mb-3" style="display:flex;width:44px;height:44px;border-radius:12px;background:var(--ad-gold-soft);color:var(--ad-gold-ink)">
           <?= icon('key', 22) ?>
         </div>
         <h1 class="mb-1">Vérification en deux étapes</h1>

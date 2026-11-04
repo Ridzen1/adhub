@@ -174,11 +174,39 @@ function icon(string $nom, int $taille = 18): string
         'flag'      => '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/>',
         'bulb'      => '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/>',
         'message'   => '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        'sun'       => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+        'moon'      => '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
         'flame'     => '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
     ];
     $p = $chemins[$nom] ?? '';
     return '<svg width="' . $taille . '" height="' . $taille . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
          . 'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
+}
+
+/**
+ * Thème clair / sombre, choisi avec le bouton de la barre du haut.
+ * Le choix est gardé dans un cookie du navigateur (hub_theme = light | dark) :
+ * le serveur pose directement le bon thème, sans flash blanc au chargement.
+ * Sans choix enregistré, on suit le réglage clair/sombre de l'ordinateur ou du téléphone.
+ */
+function theme_choisi(): ?string
+{
+    $t = $_COOKIE['hub_theme'] ?? '';
+    return in_array($t, ['light', 'dark'], true) ? $t : null;
+}
+
+/** Attribut à poser sur <html> + petit script qui applique le thème avant l'affichage */
+function theme_html_attr(): string
+{
+    $t = theme_choisi();
+    return $t ? ' data-bs-theme="' . $t . '"' : '';
+}
+
+function theme_head_script(): string
+{
+    return "<script>(function(){var d=document.documentElement;if(d.getAttribute('data-bs-theme'))return;"
+         . "try{d.setAttribute('data-bs-theme',window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}"
+         . "catch(e){d.setAttribute('data-bs-theme','light');}})();</script>";
 }
 
 /** Première page de la société que l'utilisateur a le droit d'ouvrir */

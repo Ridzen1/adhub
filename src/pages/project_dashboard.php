@@ -161,7 +161,7 @@ require __DIR__ . '/../inc/layout_header.php';
     <?php if ($partSolide !== null): ?>
       <?= kpi('Solide / liquide', pourcent($partSolide) . ' <small>/ ' . pourcent(100 - $partSolide) . '</small>', [
             'icon' => 'pie',
-            'foot' => '<div class="meter" style="flex:1;min-width:80px"><span style="width:' . round($partSolide) . '%;background:#0F7B55"></span></div>',
+            'foot' => '<div class="meter" style="flex:1;min-width:80px"><span style="width:' . round($partSolide) . '%;background:var(--ad-green)"></span></div>',
           ]) ?>
     <?php endif; ?>
   </div>
@@ -184,8 +184,8 @@ require __DIR__ . '/../inc/layout_header.php';
     <div class="card-header">
       Chiffre d'affaires quotidien
       <span class="legend-inline">
-        <span><i style="background:#1F5FAD"></i>30 derniers jours</span>
-        <span><i style="background:#CBD2DB"></i>Même jour N-1</span>
+        <span><i style="background:var(--ad-blue)"></i>30 derniers jours</span>
+        <span><i style="background:var(--ad-chart-grey)"></i>Même jour N-1</span>
         <a href="/pages/analyse_caisse.php?id=<?= $id ?>" class="ms-2">Analyse détaillée →</a>
       </span>
     </div>
@@ -238,8 +238,8 @@ require __DIR__ . '/../inc/layout_header.php';
         <div class="card-header">
           Loyers et charges
           <span class="legend-inline">
-            <span><i style="background:#CBD2DB"></i>Appelés</span>
-            <span><i style="background:#1F5FAD"></i>Encaissés</span>
+            <span><i style="background:var(--ad-chart-grey)"></i>Appelés</span>
+            <span><i style="background:var(--ad-blue)"></i>Encaissés</span>
           </span>
         </div>
         <div class="card-body"><div class="chart-box"><canvas id="chartLoyers"></canvas></div></div>
@@ -319,9 +319,9 @@ require __DIR__ . '/../inc/layout_header.php';
   <div class="card-header">
     Évolution mensuelle
     <span class="legend-inline">
-      <span><i style="background:#1F5FAD"></i>Revenus</span>
-      <span><i style="background:#C8A84B"></i>Charges</span>
-      <span><i style="background:#0E1C2B"></i>Résultat net</span>
+      <span><i style="background:var(--ad-blue)"></i>Revenus</span>
+      <span><i style="background:var(--ad-gold)"></i>Charges</span>
+      <span><i style="background:var(--ad-ink)"></i>Résultat net</span>
     </span>
   </div>
   <div class="card-body">
@@ -408,7 +408,7 @@ require __DIR__ . '/../inc/layout_header.php';
       labels: serie.map(function (j) { return j.libelle; }),
       datasets: [
         { label: 'CA TTC', data: serie.map(function (j) { return j.ca; }), backgroundColor: c.blue, maxBarThickness: 26, order: 2 },
-        { label: 'N-1', type: 'line', data: serie.map(function (j) { return j.ca_n1 || null; }), borderColor: '#AEB6C2', borderDash: [4, 4], borderWidth: 1.6, spanGaps: true, tension: .3, order: 1 }
+        { label: 'N-1', type: 'line', data: serie.map(function (j) { return j.ca_n1 || null; }), borderColor: ADHUB.colors.n1, borderDash: [4, 4], borderWidth: 1.6, spanGaps: true, tension: .3, order: 1 }
       ]
     },
     options: {
@@ -436,7 +436,7 @@ require __DIR__ . '/../inc/layout_header.php';
     data: {
       labels: m.map(function (x) { return x.mois; }),
       datasets: [
-        { label: 'Appelés', data: m.map(function (x) { return x.appele; }), backgroundColor: '#CBD2DB', maxBarThickness: 18 },
+        { label: 'Appelés', data: m.map(function (x) { return x.appele; }), backgroundColor: ADHUB.colors.grey, maxBarThickness: 18 },
         { label: 'Encaissés', data: m.map(function (x) { return x.encaisse; }), backgroundColor: ADHUB.colors.blue, maxBarThickness: 18 }
       ]
     },
@@ -455,7 +455,7 @@ new Chart(document.getElementById('chartEvolution'), {
   data: {
     labels: <?= json_encode($chartLabels, JSON_UNESCAPED_UNICODE) ?>,
     datasets: [
-      { type: 'line', label: 'Résultat net', data: <?= json_encode($chartNet) ?>, borderColor: ADHUB.colors.navy, backgroundColor: ADHUB.colors.navy, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, tension: .3, order: 0 },
+      { type: 'line', label: 'Résultat net', data: <?= json_encode($chartNet) ?>, borderColor: ADHUB.colors.navy, backgroundColor: ADHUB.colors.navy, pointRadius: 3, pointBackgroundColor: ADHUB.colors.surface, pointBorderWidth: 2, tension: .3, order: 0 },
       { type: 'bar', label: 'Revenus', data: <?= json_encode($chartRevenus) ?>, backgroundColor: ADHUB.colors.blue, maxBarThickness: 22, order: 1 },
       { type: 'bar', label: 'Charges', data: <?= json_encode($chartCharges) ?>, backgroundColor: ADHUB.colors.gold, maxBarThickness: 22, order: 1 }
     ]

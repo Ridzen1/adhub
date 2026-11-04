@@ -399,7 +399,7 @@ require __DIR__ . '/../inc/layout_header.php';
     data: {
       labels: <?= json_encode(array_column($repartition, 'titre'), JSON_UNESCAPED_UNICODE) ?>,
       datasets: [{ data: <?= json_encode(array_map(fn($r) => max(0, $r['total']), $repartition)) ?>,
-                   backgroundColor: <?= json_encode(array_column($repartition, 'couleur')) ?>, borderWidth: 2, borderColor: '#fff', hoverOffset: 4 }]
+                   backgroundColor: <?= json_encode(array_column($repartition, 'couleur')) ?>, borderWidth: 2, borderColor: ADHUB.colors.surface, hoverOffset: 4 }]
     },
     options: { cutout: '68%', plugins: { legend: { display: false }, tooltip: { mode: 'nearest', callbacks: { label: function (x) { return ' ' + ADHUB.eur(x.raw); } } } } }
   });

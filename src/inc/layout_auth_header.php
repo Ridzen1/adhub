@@ -6,10 +6,12 @@
 require_once __DIR__ . '/ui.php';
 ?>
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr"<?= theme_html_attr() ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <?= theme_head_script() ?>
   <title><?= h($authTitre ?? 'Connexion') ?> · AD'HUB</title>
   <link href="/assets/vendor/bootstrap.min.css" rel="stylesheet">
   <link href="/assets/adhub.css?v=<?= @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1 ?>" rel="stylesheet">
@@ -38,5 +40,6 @@ require_once __DIR__ . '/ui.php';
     <div class="login-panel">
       <div class="login-box">
         <div class="login-brand-mobile">
-          <img src="/assets/img/adhub-logo.png" alt="AD'Hub · Invest, Connect, Grow" width="200" height="133">
+          <img class="hub-logo-jour" src="/assets/img/adhub-logo.png" alt="AD'Hub · Invest, Connect, Grow" width="200" height="133">
+          <img class="hub-logo-nuit" src="/assets/img/adhub-logo-clair.png" alt="AD'Hub · Invest, Connect, Grow" width="200" height="133">
         </div>

@@ -42,10 +42,12 @@ $navRetoursNouveaux = is_direction() ? retours_nouveaux() : 0;
 $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 ?>
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr"<?= theme_html_attr() ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <?= theme_head_script() ?>
   <title><?= h($pageTitle ?? "AD'HUB") ?> · AD'HUB</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" href="/assets/img/favicon-32.png">
@@ -143,6 +145,11 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
         <?= icon('bulb', 16) ?> Une idée ?
       </a>
     </nav>
+
+    <button type="button" class="hub-theme-btn" data-theme-toggle title="Passer en thème sombre / clair" aria-label="Changer de thème (clair ou sombre)">
+      <span class="hub-theme-moon"><?= icon('moon', 18) ?></span>
+      <span class="hub-theme-sun"><?= icon('sun', 18) ?></span>
+    </button>
 
     <div class="hub-user dropdown">
       <button type="button" class="hub-user-btn" data-bs-toggle="dropdown" aria-expanded="false">
