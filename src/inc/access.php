@@ -312,6 +312,12 @@ function update_user_identity(int $userId, string $name, string $email): void
     $stmt->execute(['n' => $name, 'e' => $email, 'id' => $userId]);
 }
 
+/** Retire le mot de passe d'un compte (connexion impossible jusqu'au choix par lien e-mail). */
+function retirer_mot_de_passe(int $userId): void
+{
+    get_db()->prepare("UPDATE users SET password_hash = '!a-definir' WHERE id = :id")->execute(['id' => $userId]);
+}
+
 /** Vrai si le compte n'a pas encore de mot de passe (créé par migration, empreinte invalide). */
 function user_sans_mot_de_passe(array $user): bool
 {

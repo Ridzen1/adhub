@@ -220,3 +220,18 @@ l'envoi passe par la fonction `mail()` d'o2switch, depuis `ne-pas-repondre@ad-hu
 - **Secours si plus personne ne reçoit de code** : dans cPanel › Gestionnaire de fichiers, ouvrir
   `adhub.fr/config/config.local.php` et ajouter `'double_auth_email' => false,` dans le tableau.
   La connexion repasse au mot de passe seul. Retirer la ligne dès que l'envoi refonctionne.
+
+## Chacun choisit son mot de passe (lien par e-mail)
+
+Administration › Utilisateurs › « Laisser chacun choisir son mot de passe » : envoie à chaque compte
+un lien sécurisé (valable 7 jours, utilisable une seule fois) pour choisir lui-même son mot de passe.
+Bouton par compte (« Envoyer le lien mot de passe ») ou envoi groupé (comptes sans mot de passe, ou
+tous les comptes actifs sauf soi). La page de connexion propose aussi « Mot de passe oublié ? »
+(lien valable 1 heure, message identique que le compte existe ou non).
+
+- Aucune migration : le lien est signé avec l'empreinte actuelle du mot de passe et le mot de passe
+  de la base ; il cesse de marcher dès que le mot de passe a été choisi.
+- Expéditeur : `contact@ad-hub.fr` par défaut. **Cette boîte doit exister** dans cPanel ›
+  Comptes de messagerie (sinon les e-mails partent mal et les réponses se perdent). Pour en changer :
+  `'expediteur_comptes'` dans le bloc `'mail'` de `config.local.php`.
+- Les liens pointent vers `https://ad-hub.fr` (modifiable avec `'url_site'`).

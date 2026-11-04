@@ -173,6 +173,9 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
 </header>
 
 <main class="hub-main">
+<?php if (!empty($_SESSION['flash_mdp'])): unset($_SESSION['flash_mdp']); ?>
+  <div class="alert alert-success">Votre mot de passe est enregistré. Utilisez-le avec votre adresse e-mail pour vos prochaines connexions.</div>
+<?php endif; ?>
 <?php if (isset($_SESSION['flash_secours'])): $restantsSecours = (int) $_SESSION['flash_secours']; unset($_SESSION['flash_secours']); ?>
   <div class="alert alert-warning">
     Vous vous êtes connecté avec un code de secours. Il vous en reste <strong><?= $restantsSecours ?></strong>.
