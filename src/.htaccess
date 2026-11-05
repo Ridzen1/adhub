@@ -25,3 +25,12 @@
 
 # Page d'entrée
 DirectoryIndex index.php
+# Appli installable (iPhone / Android)
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
+<FilesMatch "^(sw\.js|manifest\.webmanifest)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache"
+    </IfModule>
+</FilesMatch>

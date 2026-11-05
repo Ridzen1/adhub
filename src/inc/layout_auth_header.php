@@ -18,6 +18,7 @@ require_once __DIR__ . '/ui.php';
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" href="/assets/img/favicon-32.png">
   <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+<?php require __DIR__ . '/pwa_head.php'; ?>
 </head>
 <body>
   <div class="login-wrap">
