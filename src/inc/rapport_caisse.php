@@ -43,13 +43,39 @@ function extraire_champ(string $texte, string $motif): ?float
 }
 
 /**
+ * Famille d'une catégorie : le classement de la page Administration > Caisses
+ * (table caisse_familles) s'il existe, sinon les listes ci-dessus.
+ */
+function rapport_famille_categorie(string $categorie): ?string
+{
+    if (function_exists('caisse_famille')) {
+        try {
+            $f = caisse_famille('laddition', $categorie);
+            if ($f !== null) {
+                return $f;
+            }
+        } catch (Throwable $e) {
+            // table absente (migration 011 non passée) : listes par défaut
+        }
+    }
+    if (in_array($categorie, CATEGORIES_SOLIDE, true)) {
+        return 'solide';
+    }
+    if (in_array($categorie, CATEGORIES_LIQUIDE, true)) {
+        return 'liquide';
+    }
+    return null;
+}
+
+/**
  * Analyse le corps du rapport et renvoie les valeurs exploitables.
  * Retourne ['erreurs' => [...]] si le texte n'est pas reconnu.
+ * 'ventes' liste les lignes du tableau des ventes : categorie, produit, quantite, ttc, ht.
  */
 function parser_rapport_caisse(string $texte): array
 {
     $nombre = '([\d \x{00a0}\x{202f}.,]+)';
-    $res = ['erreurs' => [], 'avertissements' => []];
+    $res = ['erreurs' => [], 'avertissements' => [], 'ventes' => []];
 
     // Date de la journée
     if (preg_match('/journ[ée]e du\s+(\d{4}-\d{2}-\d{2})/iu', $texte, $m)) {
@@ -93,11 +119,21 @@ function parser_rapport_caisse(string $texte): array
             continue; // ligne d'en-tête ou de stock, pas une vente
         }
         $ttc = nettoyer_nombre($cols[3]);
+        $res['ventes'][] = [
+            'categorie' => $categorie,
+            'produit'   => trim($cols[1]),
+            'quantite'  => nettoyer_nombre($cols[2]),
+            'ttc'       => $ttc,
+            'ht'        => nettoyer_nombre($cols[4]),
+        ];
 
-        if (in_array($categorie, CATEGORIES_SOLIDE, true)) {
+        $famille = rapport_famille_categorie($categorie);
+        if ($famille === 'solide') {
             $solide += $ttc;
-        } elseif (in_array($categorie, CATEGORIES_LIQUIDE, true)) {
+        } elseif ($famille === 'liquide') {
             $liquide += $ttc;
+        } elseif ($famille === 'autre') {
+            $autre += $ttc; // classé « autre » volontairement : pas d'avertissement
         } else {
             $autre += $ttc;
             $categoriesInconnues[$categorie] = true;

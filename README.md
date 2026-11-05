@@ -280,6 +280,32 @@ Une journée de L'Addition va jusqu'à 5 h le lendemain (`CAISSE_HEURE_BASCULE`)
 Les scripts sont idempotents : les relancer sur une période ne crée pas de doublon.
 Chaque passage est tracé dans `sync_runs` et visible dans le menu **Caisses**.
 
+### Z quotidien L'Addition reçu par courriel (Valentino)
+
+Chaque nuit, L'Addition envoie « Votre Z quotidien (Valentino | date) » à `contact@ad-hub.fr`.
+`cron/caisses/z_quotidien_mail.php` lit ce courriel directement dans la boîte o2switch
+(fichiers `~/mail/ad-hub.fr/contact`, aucun mot de passe, courriels laissés en place) et :
+
+- écrit la journée dans la saisie quotidienne (source `email`) : CA TTC/HT, couverts, remises,
+  offerts, ticket moyen, corrections cuisine, part solide / liquide ;
+- garde les ventes par produit (table `laddition_z_ventes`) pour la page **Analyse des ventes** :
+  catégories, top / flop produits, solide / liquide, TVA (pas d'heure, de salle ni de serveur dans le Z).
+
+Une journée saisie à la main est conservée (`--force` pour la remplacer). Le restaurant est
+trouvé par son nom (« Valentino » → SAS LE VALENTINO, la SCI est écartée) ; sinon
+`'z_quotidien' => ['Valentino' => ID]` dans `config/caisses.local.php`.
+
+Installation : migration `database/024_z_quotidien_laddition.sql`, puis
+`php cron/caisses/z_quotidien_mail.php --test` (lit sans écrire), puis `--jours=60` pour reprendre
+les Z encore dans la boîte, puis la tâche cron :
+
+```
+15 6 * * * /usr/local/bin/php ~/adhub.fr/cron/caisses/z_quotidien_mail.php >/dev/null 2>&1
+```
+
+Chaque passage est tracé dans le menu **Caisses**. Un `.eml` enregistré s'importe aussi :
+`php cron/caisses/z_quotidien_mail.php fichier.eml`.
+
 ### Limites
 
 Ces back-offices n'ont pas d'API publique : un changement de leur site peut casser la
@@ -392,6 +418,5 @@ Migration : `database/022_comptes_lecture_seule.sql` (relançable sans doublon).
 
 ## Prochaine étape
 
-- Automatisation complète : boîte mail dédiée + cron IMAP appelant le même analyseur.
 - Connecteur API Popina officiel (une clé par établissement).
 - Déploiement sur l'hébergement.

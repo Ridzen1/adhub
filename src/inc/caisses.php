@@ -61,6 +61,33 @@ function caisse_etablissements_projet(int $projectId): array
     return $stmt->fetchAll();
 }
 
+/**
+ * Table du Z quotidien reçu par courriel (migration 024). Tant qu'elle n'existe pas,
+ * les analyses l'ignorent.
+ */
+function caisse_z_disponible(): bool
+{
+    static $ok = null;
+    if ($ok === null) {
+        try {
+            $ok = (bool) get_db()->query("SHOW TABLES LIKE 'laddition_z_ventes'")->fetchColumn();
+        } catch (Throwable $e) {
+            $ok = false;
+        }
+    }
+    return $ok;
+}
+
+/**
+ * Branche « Z par courriel » des requêtes d'articles : seulement pour une société qui
+ * n'a pas de synchro L'Addition, pour ne jamais compter deux fois la même vente.
+ */
+function caisse_z_condition(string $alias): string
+{
+    return "NOT EXISTS (SELECT 1 FROM caisse_etablissements cez
+                        WHERE cez.project_id = {$alias}.project_id AND cez.source = 'laddition')";
+}
+
 function caisse_sources_projet(int $projectId): array
 {
     return array_values(array_unique(array_column(caisse_etablissements_projet($projectId), 'source')));
@@ -104,13 +131,27 @@ function caisse_articles_sql(int $projectId, string $du, string $au): array
           ON ce.source = 'laddition' AND ce.id_externe = lo.id_company
         WHERE ce.project_id = :pid_l
           AND lo.heure_vente >= :du_l + INTERVAL {$b} HOUR
-          AND lo.heure_vente <  :au_l + INTERVAL 1 DAY + INTERVAL {$b} HOUR
-    ) AS v";
-
-    return [$sql, [
+          AND lo.heure_vente <  :au_l + INTERVAL 1 DAY + INTERVAL {$b} HOUR";
+    $params = [
         'pid_p' => $projectId, 'du_p' => $du, 'au_p' => $au,
         'pid_l' => $projectId, 'du_l' => $du, 'au_l' => $au,
-    ]];
+    ];
+
+    // Z quotidien reçu par courriel : ventes par produit, sans heure, salle ni ticket
+    if (caisse_z_disponible()) {
+        $sql .= "
+        UNION ALL
+        SELECT z.jour, NULL AS heure, z.categorie, NULL AS sous_categorie, z.produit,
+               z.quantite, z.ttc, z.ht, 0 AS offert,
+               NULL AS salle, NULL AS serveur, NULL AS ticket, 'laddition' AS source
+        FROM laddition_z_ventes z
+        WHERE z.project_id = :pid_z AND z.jour BETWEEN :du_z AND :au_z
+          AND " . caisse_z_condition('z');
+        $params += ['pid_z' => $projectId, 'du_z' => $du, 'au_z' => $au];
+    }
+
+    return [$sql . "
+    ) AS v", $params];
 }
 
 function caisse_requete(string $sql, array $params): array
@@ -329,9 +370,25 @@ function caisse_categories_vues(): array
          UNION ALL
          SELECT 'laddition', categorie_produit, SUM(ttc), DATE(MAX(heure_vente))
          FROM laddition_order_lines WHERE categorie_produit IS NOT NULL
-         GROUP BY categorie_produit
+         GROUP BY categorie_produit"
+        . (caisse_z_disponible() ? "
+         UNION ALL
+         SELECT 'laddition', categorie, SUM(ttc), MAX(jour)
+         FROM laddition_z_ventes GROUP BY categorie" : '') . "
          ORDER BY source, categorie"
     )->fetchAll();
+    // Une catégorie vue à la fois dans la synchro et dans le Z : une seule ligne
+    $fusion = [];
+    foreach ($rows as $r) {
+        $cle = $r['source'] . '|' . mb_strtolower((string) $r['categorie']);
+        if (isset($fusion[$cle])) {
+            $fusion[$cle]['ttc'] += $r['ttc'];
+            $fusion[$cle]['vu_le'] = max($fusion[$cle]['vu_le'], $r['vu_le']);
+        } else {
+            $fusion[$cle] = $r;
+        }
+    }
+    $rows = array_values($fusion);
     foreach ($rows as &$r) {
         $r['famille'] = caisse_famille($r['source'], $r['categorie']);
     }
@@ -514,8 +571,7 @@ function analyse_paiements(int $projectId, string $du, string $au): array
 function analyse_tva(int $projectId, string $du, string $au): array
 {
     $b = CAISSE_HEURE_BASCULE;
-    return caisse_requete(
-        "SELECT taux, SUM(ttc) AS ttc, SUM(ht) AS ht, SUM(ttc) - SUM(ht) AS tva FROM (
+    $sql = "SELECT taux, SUM(ttc) AS ttc, SUM(ht) AS ht, SUM(ttc) - SUM(ht) AS tva FROM (
             SELECT pl.taux_tva AS taux, pl.net_ttc AS ttc, pl.ht AS ht
             FROM popina_lignes pl
             JOIN caisse_etablissements ce ON ce.source = 'popina' AND ce.id_externe = pl.id_etablissement
@@ -527,11 +583,27 @@ function analyse_tva(int $projectId, string $du, string $au): array
             JOIN caisse_etablissements ce ON ce.source = 'laddition' AND ce.id_externe = lo.id_company
             WHERE ce.project_id = :pid_l
               AND lo.heure_vente >= :du_l + INTERVAL {$b} HOUR
-              AND lo.heure_vente <  :au_l + INTERVAL 1 DAY + INTERVAL {$b} HOUR
-         ) t WHERE taux IS NOT NULL GROUP BY taux ORDER BY taux",
-        ['pid_p' => $projectId, 'du_p' => $du, 'au_p' => $au,
-         'pid_l' => $projectId, 'du_l' => $du, 'au_l' => $au]
-    );
+              AND lo.heure_vente <  :au_l + INTERVAL 1 DAY + INTERVAL {$b} HOUR";
+    $params = ['pid_p' => $projectId, 'du_p' => $du, 'au_p' => $au,
+               'pid_l' => $projectId, 'du_l' => $du, 'au_l' => $au];
+
+    // Z par courriel : pas de taux transmis, on le retrouve à partir de TTC / HT
+    if (caisse_z_disponible()) {
+        $sql .= "
+            UNION ALL
+            SELECT CASE WHEN ABS(z.ttc / z.ht - 1.20) < 0.01 THEN 20
+                        WHEN ABS(z.ttc / z.ht - 1.10) < 0.01 THEN 10
+                        WHEN ABS(z.ttc / z.ht - 1.055) < 0.005 THEN 5.5
+                        WHEN ABS(z.ttc / z.ht - 1.021) < 0.003 THEN 2.1 END,
+                   z.ttc, z.ht
+            FROM laddition_z_ventes z
+            WHERE z.project_id = :pid_z AND z.jour BETWEEN :du_z AND :au_z AND z.ht > 0
+              AND " . caisse_z_condition('z');
+        $params += ['pid_z' => $projectId, 'du_z' => $du, 'au_z' => $au];
+    }
+
+    return caisse_requete($sql . "
+         ) t WHERE taux IS NOT NULL GROUP BY taux ORDER BY taux", $params);
 }
 
 /** Offerts et annulations ligne par ligne (Popina), les plus gros en premier. */
