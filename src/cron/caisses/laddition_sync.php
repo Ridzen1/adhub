@@ -6,12 +6,15 @@
  * pour les établissements reliés à une société dans config/caisses.local.php.
  *
  * Usage :
- *   php cron/caisses/laddition_sync.php                          -> la veille
+ *   php cron/caisses/laddition_sync.php                          -> les 3 derniers jours (jusqu'à la veille)
  *   php cron/caisses/laddition_sync.php 2026-10-01 2026-10-22    -> une période (rattrapage)
  *   ajouter --force pour écraser aussi les journées saisies à la main
  *
- * Cron (tous les jours à 6h, après les clôtures de la nuit) :
- *   0 6 * * * php ~/adhub/cron/caisses/laddition_sync.php >> ~/logs/caisses.log 2>&1
+ * Sans date, les 3 derniers jours sont repris : une nuit où la synchro a échoué
+ * (L'Addition indisponible, coupure, cron sauté) se rattrape toute seule la nuit suivante.
+ *
+ * Cron (tous les jours à 5h30, après la fin de journée de service à 5h) :
+ *   30 5 * * * /usr/local/bin/php ~/adhub.fr/cron/caisses/laddition_sync.php >/dev/null 2>&1
  */
 declare(strict_types=1);
 
@@ -225,12 +228,19 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
 
 $args  = array_values(array_filter(array_slice($argv, 1), fn($a) => $a !== '--force'));
 $force = in_array('--force', $argv, true);
-$from = $args[0] ?? date('Y-m-d', strtotime('-1 day'));
-$to   = $args[1] ?? $from;
+if ($args) {
+    $from = $args[0];
+    $to   = $args[1] ?? $from;
+} else {
+    // Sans date : les 3 derniers jours, pour rattraper une nuit manquée
+    $from = date('Y-m-d', strtotime('-' . CAISSE_JOURS_RATTRAPAGE . ' days'));
+    $to   = date('Y-m-d', strtotime('-1 day'));
+}
 foreach ([$from, $to] as $d) {
     $dt = DateTime::createFromFormat('!Y-m-d', $d);
     if (!$dt || $dt->format('Y-m-d') !== $d) { fwrite(STDERR, "Date invalide : $d (format AAAA-MM-JJ)\n"); exit(1); }
 }
+if ($from > $to) { fwrite(STDERR, "La date de début est après la date de fin\n"); exit(1); }
 
 try {
     $pdo = get_db();
