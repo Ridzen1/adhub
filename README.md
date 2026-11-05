@@ -269,11 +269,12 @@ offerts et annulations. L'Addition ne fournit ni couverts, ni serveurs, ni encai
 4. Lancer une première reprise : `php cron/caisses/popina_sync.php 2026-10-01 2026-10-24`
    (idem `laddition_sync.php`). Ajouter `--force` pour remplacer des saisies non automatiques.
 5. Menu **Caisses** (direction) : classer les nouvelles catégories en solide / liquide / autre.
-6. Tâches cron cPanel (sans date, le script prend la veille) :
+6. Tâches cron cPanel (sans date, le script reprend les 3 derniers jours, jusqu'à la veille :
+   une nuit manquée se rattrape donc toute seule) :
 
 ```
-30 5 * * * /usr/local/bin/php ~/adhub/cron/caisses/laddition_sync.php >/dev/null 2>&1
-40 5 * * * /usr/local/bin/php ~/adhub/cron/caisses/popina_sync.php >/dev/null 2>&1
+30 5 * * * /usr/local/bin/php ~/adhub.fr/cron/caisses/laddition_sync.php >/dev/null 2>&1
+40 5 * * * /usr/local/bin/php ~/adhub.fr/cron/caisses/popina_sync.php >/dev/null 2>&1
 ```
 
 Une journée de L'Addition va jusqu'à 5 h le lendemain (`CAISSE_HEURE_BASCULE`), d'où un passage à 5 h 30.

@@ -26,6 +26,9 @@ require_once __DIR__ . '/daily.php';
  */
 const CAISSE_HEURE_BASCULE = 5;
 
+/** Jours repris par les synchros de caisse lancées sans date (cron) : une nuit manquée se rattrape seule. */
+const CAISSE_JOURS_RATTRAPAGE = 3;
+
 const CAISSE_SOURCES = ['laddition' => "L'Addition", 'popina' => 'Popina'];
 
 /**

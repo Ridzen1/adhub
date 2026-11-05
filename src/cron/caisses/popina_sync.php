@@ -10,7 +10,7 @@
  * pour les établissements reliés à une société dans config/caisses.local.php.
  *
  * Usage :
- *   php cron/caisses/popina_sync.php                          -> la veille
+ *   php cron/caisses/popina_sync.php                          -> les 3 derniers jours (jusqu'à la veille)
  *   php cron/caisses/popina_sync.php 2026-10-01 2026-10-22    -> une période (traitée jour par jour)
  *   ajouter --force pour écraser aussi les journées saisies à la main
  *
@@ -342,8 +342,14 @@ function syncDay(PDO $pdo, int $etab, string $day, string $jar): array
 if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
     $args  = array_values(array_filter(array_slice($argv, 1), fn($a) => $a !== '--force'));
     $force = in_array('--force', $argv, true);
-    $from = $args[0] ?? date('Y-m-d', strtotime('-1 day'));
-    $to   = $args[1] ?? $from;
+    if ($args) {
+        $from = $args[0];
+        $to   = $args[1] ?? $from;
+    } else {
+        // Sans date : les 3 derniers jours, pour rattraper une nuit manquée
+        $from = date('Y-m-d', strtotime('-' . CAISSE_JOURS_RATTRAPAGE . ' days'));
+        $to   = date('Y-m-d', strtotime('-1 day'));
+    }
     foreach ([$from, $to] as $d) {
         $dt = DateTime::createFromFormat('!Y-m-d', $d);
         if (!$dt || $dt->format('Y-m-d') !== $d) { // refuse aussi les dates impossibles (32/10…)
