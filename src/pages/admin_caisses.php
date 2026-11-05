@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/caisses.php';
+require_once __DIR__ . '/../inc/z_quotidien.php';
 require_direction();
 
 /**
@@ -21,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'famil
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recalculer') {
-    $nb = caisse_recalculer_familles();
+    $nb = caisse_recalculer_familles() + z_recalculer_familles();
     header('Location: /pages/admin_caisses.php?recalcule=' . $nb);
     exit;
 }
@@ -134,7 +135,8 @@ require __DIR__ . '/../inc/layout_header.php';
         <?php foreach ($synchros as $s): ?>
           <tr>
             <td><?= date('d/m/Y H:i', strtotime($s['run_at'])) ?></td>
-            <td><?= htmlspecialchars(CAISSE_SOURCES[$s['source']] ?? $s['source']) ?></td>
+            <td><?= htmlspecialchars(CAISSE_SOURCES[$s['source']]
+                  ?? ($s['source'] === 'z_courriel' ? "Z quotidien L'Addition (courriel)" : $s['source'])) ?></td>
             <td><?= htmlspecialchars($s['account']) ?></td>
             <td class="small">
               <?= date('d/m', strtotime($s['date_from'])) ?>

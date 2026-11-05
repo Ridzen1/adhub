@@ -4,6 +4,7 @@ require_once __DIR__ . '/../inc/projects.php';
 require_once __DIR__ . '/../inc/daily.php';
 require_once __DIR__ . '/../inc/periodes.php';
 require_once __DIR__ . '/../inc/caisses.php';
+require_once __DIR__ . '/../inc/z_quotidien.php';
 require_login();
 
 $id = (int) ($_GET['id'] ?? 0);
@@ -53,6 +54,7 @@ if ($periode === 'perso' && $dateValide($du) && $dateValide($au)) {
 
 // --- Données ---------------------------------------------------------------
 $sources     = caisse_sources_projet($id);
+$zCourriel   = !in_array('laddition', $sources, true) && z_projet_alimente($id);
 $kpis        = analyse_kpis($id, $du, $au);
 $parJour     = analyse_par_jour($id, $du, $au);
 $parSemaine  = analyse_par_jour_semaine($id, $du, $au);
@@ -100,7 +102,9 @@ require __DIR__ . '/../inc/layout_header.php';
 
 <?= company_header($project, 'analyse', '',
       $sources ? 'Caisse ' . h(implode(' + ', array_map(fn($s) => CAISSE_SOURCES[$s], $sources)))
-               : (is_direction() ? 'Aucune caisse reliée' : '')) ?>
+                 . ($zCourriel ? h(" + Z quotidien L'Addition") : '')
+               : ($zCourriel ? h("Z quotidien L'Addition (courriel)")
+                             : (is_direction() ? 'Aucune caisse reliée' : ''))) ?>
 
 <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
   <ul class="nav nav-pills">
@@ -129,7 +133,7 @@ require __DIR__ . '/../inc/layout_header.php';
   <?php endif; ?>
 </p>
 
-<?php if (!$sources && is_direction()): // message de configuration, réservé à la direction ?>
+<?php if (!$sources && !$zCourriel && is_direction()): // message de configuration, réservé à la direction ?>
   <div class="alert alert-secondary">
     Aucune caisse n'est reliée à ce restaurant : les analyses détaillées apparaîtront après
     la première synchronisation (voir <code>config/caisses.local.php</code>).
@@ -465,6 +469,10 @@ require __DIR__ . '/../inc/layout_header.php';
   quotidiennes (alimentées chaque nuit par la caisse, ou saisies à la main). Le détail
   (produits, catégories, heures, salles, serveurs, encaissements) vient directement des tickets
   de caisse. Une journée corrigée à la main peut donc différer légèrement du détail.
+  <?php if ($zCourriel): ?>
+    Ici, le détail vient du Z quotidien envoyé chaque nuit par L'Addition : ventes par produit
+    et par catégorie, sans heure, salle, serveur ni mode de paiement.
+  <?php endif; ?>
   <?php if (in_array('laddition', $sources, true)): ?>
     L'Addition ne transmet ni les couverts, ni le serveur, ni les modes de paiement : ces blocs
     n'apparaissent que pour Popina.
