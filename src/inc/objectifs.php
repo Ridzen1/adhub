@@ -177,7 +177,12 @@ function bilan_objectifs_annee(int $projectId, int $annee, ?DateTimeImmutable $a
     $aujourdhui ??= new DateTimeImmutable('today');
     $objectifs = objectifs_du_projet($projectId, $annee . '-01-01', $annee . '-12-01');
     $ca   = ca_par_mois($projectId, $annee . '-01-01', $annee . '-12-31');
-    $caN1 = ca_par_mois($projectId, ($annee - 1) . '-01-01', ($annee - 1) . '-12-31');
+    // CA N-1 de chaque mois sur les mêmes jours de la semaine (364 jours plus tôt),
+    // mois complet, pour proposer un objectif cohérent avec le calendrier
+    $caN1 = [];
+    foreach (comparaison_mois_annee($projectId, $annee, '9999-12-31') as $c) {
+        $caN1[$c['cle']] = $c['ca_n1'] > 0 ? $c['ca_n1'] : null;
+    }
     $moisCourant = $aujourdhui->format('Y-m');
 
     $out = [];
@@ -196,7 +201,7 @@ function bilan_objectifs_annee(int $projectId, int $annee, ?DateTimeImmutable $a
             'mois'     => $m,
             'objectif' => $obj,
             'realise'  => $real,
-            'ca_n1'    => $caN1[sprintf('%04d-%02d', $annee - 1, $m)] ?? null,
+            'ca_n1'    => $caN1[$cle] ?? null,
             'pct'      => $obj ? $real / $obj * 100 : null,
             'etat'     => $etat,
         ];
