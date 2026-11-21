@@ -73,7 +73,7 @@ function afficher_cartes_restaurants(array $restaurants): void
               <div class="resto-value num"><?= $hier !== null ? eur($hier) : '<span class="text-muted fw-normal">—</span>' ?></div>
               <div class="kpi-foot mt-1">
                 <?= $hier !== null && isset($caHierN1[$pid])
-                    ? delta(ecart_pct($hier, $caHierN1[$pid]), false, 'vs même jour N-1')
+                    ? delta(ecart_pct($hier, $caHierN1[$pid]), false, 'vs ' . libelle_jour($bHier['n1_debut'], true))
                     : '<span>' . date('d/m', strtotime($bHier['debut'])) . '</span>' ?>
               </div>
             </div>
@@ -81,7 +81,7 @@ function afficher_cartes_restaurants(array $restaurants): void
               <div class="kpi-label">CA · <?= h($moisLabel) ?></div>
               <div class="resto-value num"><?= $mois > 0 ? eur($mois) : '<span class="text-muted fw-normal fs-6">pas de saisie</span>' ?></div>
               <div class="kpi-foot mt-1">
-                <?= isset($caMoisN1[$pid]) ? delta(ecart_pct($mois, $caMoisN1[$pid]), false, 'vs N-1') : '<span>Pas de comparaison N-1</span>' ?>
+                <?= isset($caMoisN1[$pid]) && $bMois['fin'] < date('Y-m-d') ? delta(ecart_pct($mois, $caMoisN1[$pid]), false, 'vs N-1') : '<span>Pas de comparaison N-1</span>' ?>
               </div>
             </div>
           </div>

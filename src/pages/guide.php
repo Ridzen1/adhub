@@ -85,7 +85,7 @@ HTML,
         'html' => <<<HTML
 <p>Pour un <strong>restaurant</strong>, la partie <em>Activité</em> montre le CA d'hier, de la semaine
 et du mois (avec une projection en fin de mois), l'objectif du mois s'il a été fixé, les couverts, le panier moyen et la part
-solide / liquide. Le graphique compare chaque jour au même jour de l'année précédente.</p>
+solide / liquide. Le graphique compare chaque jour au même jour de la semaine de l'année précédente (52 semaines plus tôt).</p>
 <p>Pour toutes les sociétés, le <em>Suivi mensuel</em> donne le résultat net du dernier mois, le cumul
 de l'année, les revenus et les charges, et pour l'immobilier le nombre de lots loués.</p>
 <p class="guide-note">Les pastilles vertes et rouges indiquent la variation par rapport à l'année
@@ -113,13 +113,16 @@ HTML,
         'id' => 'evolution', 'icon' => 'calendar', 'pour' => 'tous',
         'titre' => "Restaurants : évolution par rapport à l'an dernier",
         'html' => <<<HTML
-<p>L'onglet <strong>Évolution</strong> compare hier, la semaine en cours et le mois en cours à l'année précédente.</p>
+<p>L'onglet <strong>Évolution</strong> compare hier, la semaine en cours, le mois en cours, les 12 dernières
+semaines et chaque mois de l'année à l'année précédente.</p>
 <ul>
-  <li>Pour hier et la semaine, on compare au <strong>même jour de la semaine</strong> l'an dernier
-      (un vendredi avec un vendredi), car c'est ce qui compte en restauration.</li>
-  <li>Pour le mois, on compare au même mois l'an dernier, <strong>sur le même nombre de jours</strong> :
-      le 10 du mois, on compare 10 jours à 10 jours.</li>
-  <li>S'il n'y a pas de chiffres l'an dernier, aucune comparaison n'est affichée.</li>
+  <li>Chaque jour est toujours comparé au <strong>même jour de la semaine</strong> l'an dernier, 52 semaines
+      plus tôt (un vendredi avec un vendredi), car c'est ce qui compte en restauration.</li>
+  <li>Un mois est donc comparé à une période de même longueur décalée d'un ou deux jours : novembre 2026
+      est comparé au 2 novembre – 1er décembre 2025, avec autant de samedis et de dimanches des deux côtés.</li>
+  <li>La semaine et le mois en cours s'arrêtent à hier, des deux côtés.</li>
+  <li>Les jours sans chiffres l'an dernier (fermeture, jour férié, historique absent) sont signalés.
+      S'il n'y a aucun chiffre l'an dernier, aucune comparaison n'est affichée.</li>
 </ul>
 HTML,
     ],

@@ -89,7 +89,11 @@ if ($estRestaurant) {
 
     // Projection du mois : CA moyen par jour calendaire écoulé × nombre de jours du mois.
     // Les jours de fermeture sont ainsi lissés ; à partir de 3 jours, sinon c'est du bruit.
-    $joursEcoules = (int) $aujourdhui->format('j') - (get_daily_entry($id, $aujourdhui->format('Y-m-d')) ? 0 : 1);
+    // Le mois en cours s'arrête à hier (voir bornes_periode) : jours écoulés = jours de la période.
+    $joursEcoules = (int) (new DateTimeImmutable($compMois['bornes']['debut']))->diff(new DateTimeImmutable($compMois['bornes']['fin']))->days + 1;
+    if ($compMois['bornes']['fin'] >= $aujourdhui->format('Y-m-d')) {
+        $joursEcoules = 0; // 1er du mois : rien de complet encore
+    }
     $projection = $joursEcoules >= 3
         ? $compMois['actuel']['ca'] / $joursEcoules * (int) $aujourdhui->format('t')
         : null;
@@ -140,7 +144,9 @@ require __DIR__ . '/../inc/layout_header.php';
   <div class="kpi-grid">
     <?= kpi('CA ' . ($compHier['actuel']['jours_saisis'] ? 'd\'hier' : 'hier'), $compHier['actuel']['jours_saisis'] ? eur($compHier['actuel']['ca']) : '<span class="text-muted" style="font-size:1rem">Pas de saisie</span>', [
           'icon' => 'calendar', 'hero' => true,
-          'foot' => '<span>' . date('d/m', strtotime($compHier['bornes']['debut'])) . '</span>' . delta($compHier['var_ca'], false, 'vs N-1'),
+          'foot' => '<span>' . h(libelle_jour($compHier['bornes']['debut'])) . '</span>'
+                  . ($compHier['n1_disponible'] ? delta($compHier['var_ca'], false, 'vs ' . libelle_jour($compHier['bornes']['n1_debut'], true))
+                     : ($compHier['actuel']['jours_saisis'] ? '<span>Pas de données N-1</span>' : '')),
         ]) ?>
     <?= kpi('CA de la semaine', eur($compSem['actuel']['ca']), [
           'icon' => 'trend',
@@ -149,6 +155,8 @@ require __DIR__ . '/../inc/layout_header.php';
     <?= kpi('CA du mois', eur($compMois['actuel']['ca']), [
           'icon' => 'receipt', 'spark' => 'sparkMois',
           'foot' => ($compMois['n1_disponible'] ? delta($compMois['var_ca'], false, 'vs N-1') : '')
+                  . ($compMois['n1_disponible'] && $compMois['jours_sans_n1']
+                      ? '<span title="' . h(note_jours_sans_n1($compMois['jours_sans_n1'])) . '">' . count($compMois['jours_sans_n1']) . ' j. sans N-1</span>' : '')
                   . ($projection ? '<span>Projection ' . eur_court($projection) . '</span>' : ''),
         ]) ?>
     <?php if ($compMois['actuel']['couverts'] > 0): ?>
