@@ -311,10 +311,41 @@ function pennylane_derniers_imports(int $limite = 10): array
     )->fetchAll();
 }
 
+/**
+ * Dernier import Pennylane, daté par la donnée la plus récente réellement en base.
+ *
+ * pennylane_imports n'est rempli que par l'import Excel de la page Administration.
+ * Le script SQL d'export passé dans phpMyAdmin n'y écrit rien : la date restait donc
+ * figée sur le dernier import Excel. On prend aussi la date d'écriture des factures et
+ * des opérations (synced_at) et la date de relevé des comptes (releve_le).
+ * imported_at contient la date la plus récente trouvée ; null si aucune donnée.
+ */
 function pennylane_dernier_import(): ?array
 {
-    $r = get_db()->query("SELECT * FROM pennylane_imports ORDER BY imported_at DESC LIMIT 1")->fetch();
-    return $r ?: null;
+    $db = get_db();
+    $r = $db->query("SELECT * FROM pennylane_imports ORDER BY imported_at DESC LIMIT 1")->fetch() ?: [];
+
+    $dates = [$r['imported_at'] ?? null];
+    $sources = [
+        "SELECT MAX(synced_at) FROM pennylane_factures",
+        "SELECT MAX(synced_at) FROM pennylane_transactions",
+        "SELECT MAX(releve_le) FROM pennylane_comptes",
+        "SELECT MAX(releve_le) FROM pennylane_tresorerie_mensuelle",
+    ];
+    foreach ($sources as $sql) {
+        try {
+            $dates[] = $db->query($sql)->fetchColumn() ?: null;
+        } catch (PDOException $e) {
+            // table ou colonne absente (migration pas encore passée) : on l'ignore
+        }
+    }
+    $dates = array_filter($dates);
+    if (!$dates) {
+        return null;
+    }
+    usort($dates, fn($a, $b) => strtotime((string) $b) <=> strtotime((string) $a));
+    $r['imported_at'] = $dates[0];
+    return $r;
 }
 
 /* ------------------------------------------------------------------ */
