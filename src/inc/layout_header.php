@@ -11,6 +11,7 @@
 require_once __DIR__ . '/access.php';
 require_once __DIR__ . '/ui.php';
 require_once __DIR__ . '/retours.php';
+require_once __DIR__ . '/onedrive_reserve.php';
 
 $navUser     = current_user();
 $navProjects = get_visible_projects();
@@ -136,6 +137,12 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
             <a class="dropdown-item <?= $navPage === 'admin_logs' ? 'active' : '' ?>" href="/pages/admin_logs.php">Journal des accès</a>
           </div>
         </div>
+      <?php endif; ?>
+
+      <?php if (voit_onedrive_reserve()): ?>
+        <a href="<?= h(ONEDRIVE_RESERVE_URL) ?>" target="_blank" rel="noopener noreferrer" title="Ouvrir le dossier OneDrive (nouvel onglet)">
+          <?= icon('layers', 16) ?> OneDrive
+        </a>
       <?php endif; ?>
 
       <a href="/pages/guide.php" class="<?= $navPage === 'guide' ? 'active' : '' ?>">
