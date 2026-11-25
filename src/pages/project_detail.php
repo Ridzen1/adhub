@@ -114,8 +114,10 @@ $associates    = get_associates($id);
 // Total détenu par des tiers déjà connus (liens + associés), pour repérer d'un
 // coup d'œil si la répartition du capital est incomplète.
 $totalPct = 0.0;
+// Seuls les liens où ce projet est détenu (project_id_b) comptent : ses propres
+// participations dans d'autres sociétés ne sont pas des parts de son capital.
 foreach ($links as $l) {
-    if ($l['link_type'] === 'detention' && $l['percentage'] !== null) {
+    if ($l['link_type'] === 'detention' && $l['percentage'] !== null && (int) $l['project_id_b'] === $id) {
         $totalPct += (float) $l['percentage'];
     }
 }
@@ -332,7 +334,11 @@ require __DIR__ . '/../inc/layout_header.php';
           <ul class="list-group mb-3">
             <?php foreach ($links as $l):
               $otherName = ((int) $l['project_id_a'] === $id) ? $l['project_b_name'] : $l['project_a_name'];
-              $typeLabel = $l['link_type'] === 'detention' ? 'Détention' : 'Murs / Exploitation';
+              if ($l['link_type'] === 'detention') {
+                  $typeLabel = ((int) $l['project_id_a'] === $id) ? 'Détenue par ce projet' : 'Détient ce projet';
+              } else {
+                  $typeLabel = 'Murs / Exploitation';
+              }
             ?>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 <span><?= htmlspecialchars($otherName) ?> — <?= $typeLabel ?></span>
