@@ -256,7 +256,7 @@ Le détail reste stocké pour la page **Analyse des ventes** (bouton sur le dash
 Ce que la page montre au dirigeant : CA TTC/HT et variation N-1, couverts, panier et ticket moyens,
 part solide / liquide, CA par jour et par heure, midi / soir, jours de la semaine, catégories,
 top et flop produits, salles, TVA, et pour Popina seulement : encaissements, serveurs, pourboires,
-offerts et annulations. L'Addition ne fournit ni couverts, ni serveurs, ni encaissements.
+offerts et annulations (et, pour L'Addition depuis la migration 025, couverts, serveurs, encaissements et offerts).
 
 ### Installation
 
@@ -285,6 +285,12 @@ identifiants, puis télécharge l'export Excel « Lignes de ventes » du nouveau
 (`data.laddition.com/scripts/reporting/v1/SalesDocumentLines.php`, feuille `SalesDocumentLines`).
 Les lignes d'une période sont remplacées à chaque passage, et les catégories nouvelles sont
 classées solide / liquide d'après la typologie de L'Addition (un classement déjà fait reste).
+
+Le même export contient les tickets : avec la migration `database/025_laddition_tickets.sql`,
+le script garde aussi les couverts, le serveur, la table, les remises, les offerts et les moyens
+de paiement (tables `laddition_tickets`, `laddition_paiements`). Le dashboard reçoit alors couverts,
+ticket moyen, remises et offerts ; la page Analyse des ventes affiche serveurs, encaissements et
+offerts comme pour Popina. Pour l'historique, relancer la synchro sur la période voulue.
 Les scripts sont idempotents : les relancer sur une période ne crée pas de doublon.
 Chaque passage est tracé dans `sync_runs` et visible dans le menu **Caisses**.
 

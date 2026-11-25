@@ -473,9 +473,9 @@ require __DIR__ . '/../inc/layout_header.php';
     Ici, le détail vient du Z quotidien envoyé chaque nuit par L'Addition : ventes par produit
     et par catégorie, sans heure, salle, serveur ni mode de paiement.
   <?php endif; ?>
-  <?php if (in_array('laddition', $sources, true)): ?>
-    L'Addition ne transmet ni les couverts, ni le serveur, ni les modes de paiement : ces blocs
-    n'apparaissent que pour Popina.
+  <?php if (in_array('laddition', $sources, true) && !$serveurs && is_direction()): ?>
+    Couverts, serveurs et modes de paiement L'Addition : disponibles après la migration 025 et
+    une synchro des jours voulus (export « Lignes de ventes » du nouveau reporting).
   <?php endif; ?>
 </div>
 

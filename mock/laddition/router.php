@@ -134,20 +134,48 @@ if ($method === 'GET' && $path === '/data/scripts/reporting/v1/SalesDocumentLine
     if (!$company || !$sigOk) { header('Content-Type: text/html'); http_response_code(403); echo 'Forbidden'; exit; }
     $from = $_GET['date_start'] ?? ''; $to = $_GET['date_end'] ?? '';
     $entete = ['Etablissement', 'Jour', 'TAG_Jour/Sem', 'TAG_Split', 'TAG_LiquideUniquement (commande avec liquide seulement)', 'TAG_Heure', 'TAG_Minutes', 'Timestamp', 'ID Ticket', 'ID Receipt', 'ID user', 'Nom user', 'ID', 'ID produit', 'SKU', 'Menu parent', 'Nom', 'Modificateurs', 'Qte', 'Prix TTC', 'Prix achat HT', 'Prix achat origine', 'Prix achat MàJ', 'TAG_TypePrix', 'TAG_Discount', 'Remises TTC', 'TAG_TypeDiscount', 'TAG_Offered', 'Offerts TTC', 'Taux', 'TAG_Catégorie', 'TAG_TypeProduit', 'TAG_Typologie', 'TAG_Famille', 'TAG_Salle', 'TAG_Table', 'TAG_Type', 'Clients', 'Paiements', 'URL Ticket'];
+    $enteteT = ['Etablissement', 'Jour', 'TAG_Jour/Sem', 'TAG_Split', 'TAG_Commande', 'Heure', 'Minutes', 'Début ticket', 'Fin ticket', 'Couverts', 'Occupation', 'Utilisateur', 'TAG_Type', 'TAG_Source', 'Salle', 'Table', 'Serial', 'ID Ticket', 'ID Externe', 'N° reçu', 'Total TTC', 'Total HT', 'TVA', 'Remises', 'Offerts', 'Trop perçus', 'Avoir', 'Total TTC hors remises', 'Paiements', 'Commentaire', 'Autres informations', 'URL Ticket'];
     $rows = [$entete];
+    $tickets = [];
+    $serveurs = ['Olivier F.', 'Dieu Béni K.', 'Sarah M.'];
     for ($d = $from; $d && $d <= $to; $d = date('Y-m-d', strtotime("$d +1 day"))) {
+        $i = 0;
         foreach (fakeLines((int) $company['id_company'], $company['company_name'], $d) as $l) {
             if ((float) $l['TTC'] == 0 && $l['TYPE PRODUIT'] === 'Menu') continue; // pas de ligne menu à 0 € dans l'export
             $dt = DateTime::createFromFormat('d-m-Y H:i', $l['HEURE VENTE']);
             $serial = ($dt->getTimestamp() + $dt->getOffset()) / 86400 + 25569;
             $taux = str_replace('.', ',', (string) ($l['TAUX DE TVA'] * 100)) . '%';
+            // 4 lignes par ticket ; une ligne sur 20 offerte (prix 0, montant dans « Offerts TTC »)
+            $tid = 'T' . str_replace('-', '', $d) . '-' . intdiv($i, 4);
+            $serveur = $serveurs[intdiv($i, 4) % 3];
+            $offert = $i % 20 === 7 ? $l['TTC'] : 0;
+            $prix = $offert ? 0 : $l['TTC'];
+            $i++;
             $rows[] = [$l['ETABLISSEMENT'], $d, 'Vendredi', 'Midi (11h30-15h30)', 'NON', (int) $dt->format('G'), (int) $dt->format('i'), $serial,
-                'T-1', 'R-1', 'U-1', 'Serveur T.', $l['ID_LIGNE_VENTE'], $l['ID_PRODUIT'], '', '-', $l['NOM PRODUIT'], '', 1, $l['TTC'], 0, '-', '-',
-                'Normal', 'NON', '0.00', '-', 'NON', '0.00', $taux, $l['CATEGORIE PRODUIT'], $l['TYPE PRODUIT'], 'Solide', 'Sans Famille', $l['NOM SALLES'], '12', 'Sur place', '', 'CB', ''];
+                $tid, 'R-1', 'U-1', $serveur, $l['ID_LIGNE_VENTE'], $l['ID_PRODUIT'], '', '-', $l['NOM PRODUIT'], '', 1, $prix, 0, '-', '-',
+                'Normal', 'NON', '0.00', '-', $offert ? 'OUI' : 'NON', number_format($offert, 2, '.', ''), $taux, $l['CATEGORIE PRODUIT'], $l['TYPE PRODUIT'], 'Solide', 'Sans Famille', $l['NOM SALLES'], '12', 'Sur place', '', 'CB', ''];
+            $t = &$tickets[$tid];
+            $t ??= ['jour' => $d, 'debut' => $serial, 'serveur' => $serveur, 'salle' => $l['NOM SALLES'], 'ttc' => 0, 'ht' => 0, 'offerts' => 0];
+            $t['ttc'] += $prix; $t['ht'] += $prix ? round($prix / (1 + $l['TAUX DE TVA']), 2) : 0; $t['offerts'] += $offert;
+            unset($t);
         }
     }
     $rows[] = array_merge(['Total'], array_fill(0, count($entete) - 1, '-'));
-    $feuilles = ['Accueil' => [['Titre', 'Description'], ['SalesDocumentLines', 'Toutes les ventes produits (ligne par ligne)']], 'SalesDocumentLines' => $rows];
+    $rowsT = [$enteteT];
+    $n = 0;
+    foreach ($tickets as $tid => $t) {
+        $n++;
+        // un ticket sur 5 payé en deux fois (CB + Espèces)
+        $paiement = $n % 5 === 0
+            ? sprintf('CB(%s), Espèces(%s)', number_format($t['ttc'] - 10, 2, ',', ''), '10,00')
+            : sprintf('CB(%s)', number_format($t['ttc'], 2, ',', ''));
+        $rowsT[] = [$company['company_name'], $t['jour'], 'Vendredi', 'Midi (11h30-15h30)', '', 12, 0, $t['debut'], $t['debut'] + 0.04,
+            $n % 4 === 0 ? 0 : 2, '01:00:00', $t['serveur'], 'Sur place', 'pos', $t['salle'], '12', 'B2', $tid, '', 'R' . $n,
+            round($t['ttc'], 2), round($t['ht'], 2), round($t['ttc'] - $t['ht'], 2), 0, round($t['offerts'], 2), 0, 0, round($t['ttc'], 2), $paiement, '', '', ''];
+    }
+    $rowsT[] = array_merge(['Total'], array_fill(0, count($enteteT) - 1, '-'));
+    $feuilles = ['Accueil' => [['Titre', 'Description'], ['SalesDocumentLines', 'Toutes les ventes produits (ligne par ligne)']],
+                 'SalesDocumentLines' => $rows, 'ProductAnalytics' => [['Etablissement']], 'SalesDocument' => $rowsT];
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="' . $company['id_company'] . "-laddition-SalesDocumentLines-$from-$to.xlsx\"");
     echo mockXlsx($feuilles);
