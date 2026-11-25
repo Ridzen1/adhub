@@ -22,11 +22,14 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 date_default_timezone_set('Europe/Paris');
 
 require_once __DIR__ . '/../../inc/caisses.php';
+require_once __DIR__ . '/xlsx_reader.php';
 $config = require (getenv('CAISSES_CONFIG') ?: __DIR__ . '/../../config/caisses.local.php');
 
 // URLs surchargeables dans config.php (utile pour tester contre le serveur simulé)
 define('AUTH_API',      $config['laddition_auth_api']      ?? 'https://auth.laddition.com/v2/api/');
 define('REPORTING_API', $config['laddition_reporting_api'] ?? 'https://reporting-api.laddition.com/api/');
+// Exports Excel du nouveau reporting (reporting-pos.laddition.com), depuis le 20/11/2026
+define('DATA_URL',      $config['laddition_data_url']      ?? 'https://data.laddition.com/');
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 
 // ---------------------------------------------------------------- utilitaires
@@ -136,20 +139,143 @@ function getCompanies(string $accessToken): array
     return $json['companies'] ?? [];
 }
 
-/** Lignes de vente sur une période, tous types de commande (sur place, emporter, livraison). */
-function getOrderLines(string $accessToken, array $companyIds, string $from, string $to): array
+/**
+ * Signature attendue par data.laddition.com, calculée comme le site de L'Addition :
+ * md5("<base>#<5 derniers chiffres de l'heure Unix>").
+ */
+function ladditionSignature(string $db): string
 {
-    $json = reportingCall($accessToken, 'POST', 'dataExport/getOrderLines/', [ // slash final comme le front
-        'opening_date'  => "$from 00:00:00",
-        'closing_date'  => "$to 23:59:59",
-        'idCompanies'   => json_encode(array_map('intval', $companyIds)),
-        'orderTypeAway' => json_encode([1, 2, 3]),
-        'limit'         => false, // le front envoie true pour l'aperçu : à vérifier au premier test
+    return md5($db . '#' . substr((string) time(), -5));
+}
+
+/** Téléchargement brut (fichier Excel). Renvoie [code HTTP, contenu, type]. */
+function httpRaw(string $url): array
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER     => ['User-Agent: ' . UA, 'Referer: https://reporting-pos.laddition.com/'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 300,
+        CURLOPT_FOLLOWLOCATION => true,
     ]);
-    if (empty($json['success'])) {
-        throw new RuntimeException('getOrderLines : success=false');
+    $raw  = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+    if ($raw === false) {
+        throw new RuntimeException("Erreur réseau sur $url : $err");
     }
-    return $json['data'] ?? [];
+    return [$code, $raw, $type];
+}
+
+/**
+ * Lignes de vente d'un établissement, journées de service $from à $to incluses.
+ *
+ * Le 20/11/2026, L'Addition a supprimé la route dataExport/getOrderLines/ (404).
+ * On passe par l'export Excel « Lignes de ventes » du nouveau reporting
+ * (rapport SalesDocumentLines.php sur data.laddition.com, feuille « SalesDocumentLines »),
+ * remis au format de l'ancienne API pour que la suite ne change pas.
+ *
+ * @param array $company une entrée de getCompanies() (id_company, company_db_name)
+ */
+function getOrderLines(array $company, string $from, string $to): array
+{
+    $db = trim((string) ($company['company_db_name'] ?? ''));
+    if ($db === '') {
+        throw new RuntimeException("Nom de base L'Addition absent pour l'établissement {$company['id_company']}");
+    }
+    $url = DATA_URL . 'scripts/reporting/v1/SalesDocumentLines.php?' . http_build_query([
+        'db'         => $db,
+        'date_start' => $from,
+        'date_end'   => $to,
+        'signature'  => ladditionSignature($db),
+        'price'      => 'ttc',
+    ]);
+    [$code, $raw] = httpRaw($url);
+    if ($code !== 200 || strncmp($raw, "PK", 2) !== 0) {
+        throw new RuntimeException("Export L'Addition SalesDocumentLines (HTTP $code) : pas un fichier Excel");
+    }
+    return ladditionLignesExport(xlsxSheets($raw), (int) $company['id_company']);
+}
+
+/** Feuille « SalesDocumentLines » de l'export -> lignes au format de l'ancienne API. */
+function ladditionLignesExport(array $feuilles, int $idCompany): array
+{
+    $rows = $feuilles['SalesDocumentLines'] ?? null;
+    if (!$rows) {
+        throw new RuntimeException("Export L'Addition : feuille SalesDocumentLines absente (" . implode(', ', array_keys($feuilles)) . ')');
+    }
+    $entete = array_map(fn($v) => trim((string) $v), array_shift($rows));
+    $col = array_flip($entete);
+    foreach (['ID', 'Timestamp', 'Nom', 'Prix TTC', 'Taux'] as $requise) {
+        if (!isset($col[$requise])) {
+            throw new RuntimeException("Export L'Addition : colonne « $requise » absente, le format a changé");
+        }
+    }
+    $v = fn(array $r, string $nom) => isset($col[$nom]) ? ($r[$col[$nom]] ?? null) : null;
+    $texte = function ($x): ?string {
+        $x = $x === null ? '' : trim((string) $x);
+        return ($x === '' || $x === '-') ? null : $x;
+    };
+
+    $lignes = [];
+    foreach ($rows as $r) {
+        $id = $texte($v($r, 'ID'));
+        if ($id === null || trim((string) $v($r, 'Etablissement')) === 'Total') continue;
+
+        // Timestamp = numéro de série Excel en heure locale
+        $ts = $v($r, 'Timestamp');
+        $heure = is_numeric($ts) ? gmdate('Y-m-d H:i:s', (int) round(((float) $ts - 25569) * 86400)) : $texte($ts);
+
+        $nomTva = $texte($v($r, 'Taux'));                    // « 10% », « 5,5% »
+        $taux = $nomTva !== null ? (float) str_replace([',', '%', ' '], ['.', '', ''], $nomTva) / 100 : null;
+        $ttc = (float) str_replace(',', '.', (string) ($v($r, 'Prix TTC') ?? 0));
+        $ht = $taux !== null ? round($ttc / (1 + $taux), 2) : null;
+
+        $lignes[] = [
+            'ID_LIGNE_VENTE'    => $id,
+            'ETABLISSEMENT'     => $texte($v($r, 'Etablissement')),
+            'HEURE VENTE'       => $heure,
+            'TYPE PRODUIT'      => $texte($v($r, 'TAG_TypeProduit')),
+            'CATEGORIE PRODUIT' => $texte($v($r, 'TAG_Catégorie')),
+            'ID_PRODUIT'        => $texte($v($r, 'ID produit')),
+            'NOM PRODUIT'       => $texte($v($r, 'Nom')),
+            'TAUX DE TVA'       => $taux,
+            'NOM TVA'           => $nomTva,
+            'HT'                => $ht,
+            'TVA'               => $ht !== null ? round($ttc - $ht, 2) : null,
+            'TTC'               => $ttc,
+            'ID_PARENT'         => null, // l'export donne le nom du menu, pas son identifiant
+            'ID_SALLES'         => null,
+            'NOM SALLES'        => $texte($v($r, 'TAG_Salle')),
+            'TYPOLOGIE'         => $texte($v($r, 'TAG_Typologie')), // « Solide », « Liquide (Alcool) », « N/D »
+        ];
+    }
+    return $lignes;
+}
+
+/**
+ * Classe en solide / liquide les catégories encore jamais vues, d'après la typologie
+ * donnée par L'Addition. Un classement déjà fait (à la main ou par migration) n'est pas touché.
+ */
+function classerCategoriesNouvelles(PDO $pdo, array $lines): int
+{
+    $familles = [];
+    foreach ($lines as $l) {
+        $cat = $l['CATEGORIE PRODUIT'] ?? null;
+        $typo = mb_strtolower((string) ($l['TYPOLOGIE'] ?? ''));
+        if ($cat === null || isset($familles[$cat])) continue;
+        if (str_starts_with($typo, 'solide')) $familles[$cat] = 'solide';
+        elseif (str_starts_with($typo, 'liquide')) $familles[$cat] = 'liquide';
+    }
+    $stmt = $pdo->prepare("INSERT IGNORE INTO caisse_familles (source, categorie, famille) VALUES ('laddition', ?, ?)");
+    $n = 0;
+    foreach ($familles as $cat => $famille) {
+        $stmt->execute([$cat, $famille]);
+        $n += $stmt->rowCount();
+    }
+    return $n;
 }
 
 function toDatetime(?string $v): ?string
@@ -169,7 +295,11 @@ function num($v): ?float
     return (float) str_replace([',', ' '], ['.', ''], (string) $v);
 }
 
-function saveOrderLines(PDO $pdo, int $idCompany, array $lines): int
+/**
+ * Enregistre les lignes d'une période. Les lignes déjà en base pour ces journées de service
+ * sont d'abord retirées : l'export fait foi (ligne supprimée en caisse, changement d'identifiant).
+ */
+function saveOrderLines(PDO $pdo, int $idCompany, array $lines, ?string $from = null, ?string $to = null): int
 {
     $stmt = $pdo->prepare(
         'INSERT INTO laddition_order_lines
@@ -187,6 +317,14 @@ function saveOrderLines(PDO $pdo, int $idCompany, array $lines): int
     );
     $n = 0;
     $pdo->beginTransaction();
+    if ($lines && $from !== null && $to !== null) {
+        $b = CAISSE_HEURE_BASCULE;
+        $pdo->prepare(
+            "DELETE FROM laddition_order_lines
+             WHERE id_company = ? AND heure_vente >= ? + INTERVAL {$b} HOUR
+               AND heure_vente < ? + INTERVAL 1 DAY + INTERVAL {$b} HOUR"
+        )->execute([$idCompany, $from, $to]);
+    }
     foreach ($lines as $l) {
         if (empty($l['ID_LIGNE_VENTE'])) continue;
         $parent = isset($l['ID_PARENT']) ? (string) $l['ID_PARENT'] : '';
@@ -262,15 +400,17 @@ foreach ($config['laddition_accounts'] as $acc) {
 
         // 'etablissements' => [id L'Addition => id société ADHUB]
         $liens = $acc['etablissements'] ?? [];
-        // Une journée de service finit à 5h le lendemain : on récupère aussi ce lendemain
-        $toPlus = date('Y-m-d', strtotime("$to +1 day"));
         $total = 0;
         foreach ($companies as $c) {
             $id    = (int) $c['id_company'];
             $nom   = trim($c['company_name'] ?? (string) $id);
-            $lines = getOrderLines($token, [$id], $from, $toPlus);
-            $total += saveOrderLines($pdo, $id, $lines);
-            logMsg("$label / $nom : " . count($lines) . " lignes ($from → $toPlus)");
+            // L'export est par journée de service (coupure à 5 h) : pas besoin du lendemain
+            $lines = getOrderLines($c, $from, $to);
+            $total += saveOrderLines($pdo, $id, $lines, $from, $to);
+            logMsg("$label / $nom : " . count($lines) . " lignes ($from → $to)");
+            if ($classees = classerCategoriesNouvelles($pdo, $lines)) {
+                logMsg("   → $classees nouvelle(s) catégorie(s) classée(s) solide / liquide d'après L'Addition");
+            }
 
             if (isset($liens[$id])) {
                 caisse_relier('laddition', $id, (int) $liens[$id], $nom);
