@@ -12,6 +12,7 @@ require_once __DIR__ . '/access.php';
 require_once __DIR__ . '/ui.php';
 require_once __DIR__ . '/retours.php';
 require_once __DIR__ . '/onedrive_reserve.php';
+require_once __DIR__ . '/patrimoine.php';
 
 $navUser     = current_user();
 $navProjects = get_visible_projects();
@@ -137,6 +138,12 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
             <a class="dropdown-item <?= $navPage === 'admin_logs' ? 'active' : '' ?>" href="/pages/admin_logs.php">Journal des accès</a>
           </div>
         </div>
+      <?php endif; ?>
+
+      <?php if (voit_patrimoine()): ?>
+        <a href="/pages/patrimoine.php" class="<?= $navPage === 'patrimoine' ? 'active' : '' ?>">
+          <?= icon('pie', 16) ?> Patrimoine
+        </a>
       <?php endif; ?>
 
       <?php if (voit_onedrive_reserve()): ?>
