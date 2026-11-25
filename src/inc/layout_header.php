@@ -27,7 +27,7 @@ $navPage = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
 $currentProjectId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $pagesSociete = ['project_dashboard', 'project_detail', 'project_documents', 'charges', 'saisie_quotidienne',
                  'evolution', 'analyse_caisse', 'import_caisse', 'import_laddition', 'comptabilite', 'objectifs'];
-$pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses', 'admin_pennylane', 'admin_tresorerie', 'admin_retours'];
+$pagesAdmin   = ['projects', 'admin_users', 'admin_logs', 'admin_caisses', 'admin_pennylane', 'admin_tresorerie', 'admin_biens', 'admin_retours'];
 $enSociete    = in_array($navPage, $pagesSociete, true) && $currentProjectId > 0;
 
 $nomSocieteCourante = null;
@@ -130,6 +130,7 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
             <a class="dropdown-item <?= $navPage === 'admin_caisses' ? 'active' : '' ?>" href="/pages/admin_caisses.php">Caisses</a>
             <a class="dropdown-item <?= $navPage === 'admin_pennylane' ? 'active' : '' ?>" href="/pages/admin_pennylane.php">Import Pennylane</a>
             <a class="dropdown-item <?= $navPage === 'admin_tresorerie' ? 'active' : '' ?>" href="/pages/admin_tresorerie.php">Trésorerie</a>
+            <a class="dropdown-item <?= $navPage === 'admin_biens' ? 'active' : '' ?>" href="/pages/admin_biens.php">Biens et prêts</a>
             <a class="dropdown-item d-flex align-items-center justify-content-between gap-3 <?= $navPage === 'admin_retours' ? 'active' : '' ?>" href="/pages/admin_retours.php">
               Boîte à idées
               <?php if ($navRetoursNouveaux > 0): ?><span class="hub-pill"><?= $navRetoursNouveaux ?></span><?php endif; ?>
