@@ -13,6 +13,7 @@
  */
 require_once __DIR__ . '/access.php';
 require_once __DIR__ . '/indicateurs.php';
+require_once __DIR__ . '/biens.php';
 require_once __DIR__ . '/../config/db.php';
 
 const PATRIMOINE_EMAILS = [
@@ -100,6 +101,12 @@ function patrimoine_lignes(int $racine, int $annee): array
     if (!$parts) {
         return [];
     }
+    // Biens et prêts importés (migration 027) ; à défaut, les champs saisis sur la fiche société
+    $biens = biens_totaux_par_projet();
+    // Ses biens et prêts en nom propre comptent à 100 %
+    if (isset($biens[$racine])) {
+        $parts[$racine] = ['part' => 1.0, 'directe' => null, 'chemins' => [[$racine]], 'nom_propre' => true];
+    }
     $in = implode(',', array_map('intval', array_keys($parts)));
     $societes = get_db()->query(
         "SELECT p.id, p.name, p.status, p.solde_bancaire, p.solde_maj_le, p.valeur_bien, p.montant_emprunt,
@@ -115,8 +122,10 @@ function patrimoine_lignes(int $racine, int $annee): array
         $r    = resultat_annee([$pid], $annee);
         $resultat = $r['mois'] > 0 ? $r['revenus'] - $r['charges'] : null;
         $solde    = $s['solde_bancaire'] !== null ? (float) $s['solde_bancaire'] : null;
-        $valeur   = $s['valeur_bien'] !== null ? (float) $s['valeur_bien'] : null;
-        $emprunt  = $s['montant_emprunt'] !== null ? (float) $s['montant_emprunt'] : null;
+        $b        = $biens[$pid] ?? null;
+        $valeur   = $b && $b['valeur'] !== null ? $b['valeur'] : ($s['valeur_bien'] !== null ? (float) $s['valeur_bien'] : null);
+        $emprunt  = $b && $b['crd'] !== null ? $b['crd'] : ($s['montant_emprunt'] !== null ? (float) $s['montant_emprunt'] : null);
+        $mensuel  = $b && $b['nb_prets'] ? $b['mensualites'] : null;
         $lignes[] = $s + [
             'part'          => $part,
             'directe'       => $parts[$pid]['directe'],
@@ -127,6 +136,8 @@ function patrimoine_lignes(int $racine, int $annee): array
             'qp_resultat'   => $resultat !== null ? $resultat * $part : null,
             'qp_valeur'     => $valeur !== null ? $valeur * $part : null,
             'qp_emprunt'    => $emprunt !== null ? $emprunt * $part : null,
+            'qp_mensualites'=> $mensuel !== null ? $mensuel * $part : null,
+            'nom_propre'    => !empty($parts[$pid]['nom_propre']),
         ];
     }
     // Ordre : la part la plus forte d'abord, puis le nom (jamais un classement par chiffre d'affaires)

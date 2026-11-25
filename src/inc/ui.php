@@ -238,6 +238,24 @@ function societe_a_compta_pennylane(int $projectId): bool
     }
 }
 
+/** Vrai si la société a des biens ou des prêts importés (migration 027) */
+function societe_a_biens_prets(int $projectId): bool
+{
+    try {
+        $st = get_db()->prepare(
+            "SELECT 1 FROM biens_societes bs
+             WHERE bs.project_id = :id
+               AND (EXISTS (SELECT 1 FROM biens b WHERE b.societe = bs.societe)
+                 OR EXISTS (SELECT 1 FROM prets pr WHERE pr.societe = bs.societe))
+             LIMIT 1"
+        );
+        $st->execute(['id' => $projectId]);
+        return (bool) $st->fetchColumn();
+    } catch (PDOException $e) {
+        return false; // migration 027 pas encore passée
+    }
+}
+
 function company_header(array $project, string $actif, string $actions = '', string $meta = ''): string
 {
     $id = (int) $project['id'];
@@ -258,6 +276,9 @@ function company_header(array $project, string $actif, string $actions = '', str
     $onglets['charges']   = ['Charges fixes', '/pages/charges.php', 'dashboard'];
     if (societe_a_compta_pennylane($id)) {
         $onglets['compta'] = ['Comptabilité', '/pages/comptabilite.php', 'dashboard'];
+    }
+    if (is_direction() && societe_a_biens_prets($id)) {
+        $onglets['biens'] = ['Biens et prêts', '/pages/biens.php', 'dashboard'];
     }
     $onglets['documents'] = ['Documents', '/pages/project_documents.php', 'documents'];
     $onglets['fiche']     = ['Fiche société', '/pages/project_detail.php', 'fiche'];

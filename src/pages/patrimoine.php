@@ -46,6 +46,15 @@ $totEmprunt  = somme_connue($lignes, 'qp_emprunt');
 $sansSolde   = count(array_filter($lignes, fn($l) => $l['qp_tresorerie'] === null));
 $sansResultat = count(array_filter($lignes, fn($l) => $l['qp_resultat'] === null));
 $avecBiens   = $totValeur !== null || $totEmprunt !== null;
+$totMensuel  = somme_connue($lignes, 'qp_mensualites');
+// Net immobilier : seulement les sociétés qui possèdent des biens (un restaurant a des prêts
+// mais son fonds de commerce n'est pas valorisé : le compter fausserait le net)
+$totNetImmo = null;
+foreach ($lignes as $l) {
+    if ($l['qp_valeur'] !== null) {
+        $totNetImmo = ($totNetImmo ?? 0.0) + $l['qp_valeur'] - (float) ($l['qp_emprunt'] ?? 0);
+    }
+}
 
 function montant_ou_tiret(?float $v): string
 {
@@ -119,8 +128,10 @@ require __DIR__ . '/../inc/layout_header.php';
                 . ($sansResultat ? '<span>' . $sansResultat . ' sans chiffres</span>' : ''),
       ]) ?>
   <?php if ($avecBiens): ?>
-    <?= kpi('Sa part des biens', montant_ou_tiret($totValeur), ['icon' => 'home', 'foot' => '<span>Valeur des biens × part réelle</span>']) ?>
-    <?= kpi('Sa part des emprunts', montant_ou_tiret($totEmprunt), ['icon' => 'key', 'foot' => '<span>Emprunts × part réelle</span>']) ?>
+    <?= kpi('Patrimoine immobilier net', montant_ou_tiret($totNetImmo), ['icon' => 'home', 'foot' => '<span>Sa part des biens moins sa part des prêts qui les financent</span>']) ?>
+    <?= kpi('Sa part des biens', montant_ou_tiret($totValeur), ['icon' => 'building', 'foot' => '<span>Valeur des biens × part réelle</span>']) ?>
+    <?= kpi('Sa part des prêts', montant_ou_tiret($totEmprunt), ['icon' => 'key', 'foot' => '<span>Capital restant dû × part réelle</span>'
+            . ($totMensuel !== null ? '<span>' . eur($totMensuel) . ' de mensualités</span>' : '')]) ?>
   <?php else: ?>
     <?= kpi('Biens et emprunts', '<span class="text-muted">—</span>', ['icon' => 'home', 'foot' => '<span>En attente du fichier des prêts</span>']) ?>
   <?php endif; ?>
@@ -144,7 +155,7 @@ require __DIR__ . '/../inc/layout_header.php';
             <th class="text-end">Sa part</th>
             <?php if ($avecBiens): ?>
               <th class="text-end">Biens (sa part)</th>
-              <th class="text-end">Emprunts (sa part)</th>
+              <th class="text-end">Restant dû (sa part)</th>
             <?php endif; ?>
           </tr>
         </thead>
@@ -161,7 +172,7 @@ require __DIR__ . '/../inc/layout_header.php';
                 <a class="row-link" href="<?= lien_societe((int) $l['id']) ?>"><?= h($l['name']) ?></a>
                 <?= type_chip($l['type_code'], $l['type_label']) ?>
                 <div class="text-muted small">
-                  <?= $via === ['en direct'] ? 'En direct' : 'Via ' . h(implode(' ; ', $via)) ?>
+                  <?= $l['nom_propre'] ? 'En nom propre' : ($via === ['en direct'] ? 'En direct' : 'Via ' . h(implode(' ; ', $via))) ?>
                 </div>
               </td>
               <td class="text-end fw-semibold num"><?= pourcent($pct, abs($pct - round($pct)) < 0.05 ? 0 : 1) ?></td>
