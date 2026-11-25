@@ -19,6 +19,7 @@ require_once __DIR__ . '/../config/db.php';
 const PATRIMOINE_EMAILS = [
     'ryad.haddad10@gmail.com',   // compte admin (Direction) de Kader
     'scihoteldieu@gmail.com',    // Arnaud Duvivier
+    'laetitia.mdb@outlook.com',  // Laetitia Mastrantuono (demande de Kader du 2026-11-25)
 ];
 
 /** Nom de la fiche « personne » dont on calcule le patrimoine. */
