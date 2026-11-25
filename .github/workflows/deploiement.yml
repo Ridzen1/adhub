@@ -76,7 +76,7 @@ jobs:
           # inconnu) : on autorise uniquement CE certificat, par son empreinte.
           # Au renouvellement du certificat, l'envoi échoue en affichant la
           # nouvelle empreinte : la recopier ici après vérification.
-          FTP_CERT_SHA1: '34:37:0F:D8:38:96:FE:AC:31:27:9E:6A:8C:5B:99:5E:0C:C9:17:A5'
+          FTP_CERT_SHA1: '24:32:12:BE:AE:99:66:C1:3E:D8:29:FD:E3:44:B2:77:C8:A8:F1:E6'
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp > /dev/null
           lftp -u "$FTP_USERNAME" --env-password "ftp://$FTP_SERVER" -e "
