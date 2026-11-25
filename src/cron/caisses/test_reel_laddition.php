@@ -33,52 +33,23 @@ try {
     $companies = step('3. Liste des établissements', fn() => getCompanies($token));
     foreach ($companies as $c) echo "   - {$c['id_company']} : " . trim($c['company_name'] ?? '?') . "\n";
     if (!$companies) throw new RuntimeException('Aucun établissement');
-    $id = (int) $companies[0]['id_company'];
+    $company = $companies[0];
 
-    // Aperçu (comme le site) vs complet
-    $preview = step('4. Lignes de vente (limit=true)', function () use ($token, $id, $day) {
-        $j = reportingCall($token, 'POST', 'dataExport/getOrderLines/', [
-            'opening_date' => "$day 00:00:00", 'closing_date' => "$day 23:59:59",
-            'idCompanies' => json_encode([$id]), 'orderTypeAway' => json_encode([1, 2, 3]), 'limit' => true,
-        ]);
-        return $j;
-    });
-    $full = step('5. Lignes de vente (limit=false)', function () use ($token, $id, $day) {
-        return reportingCall($token, 'POST', 'dataExport/getOrderLines/', [
-            'opening_date' => "$day 00:00:00", 'closing_date' => "$day 23:59:59",
-            'idCompanies' => json_encode([$id]), 'orderTypeAway' => json_encode([1, 2, 3]), 'limit' => false,
-        ]);
-    });
-    file_put_contents(__DIR__ . '/test_reel_reponse.json', json_encode($full, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    $lines = step('4. Export « Lignes de ventes »', fn() => getOrderLines($company, $day, $day));
+    file_put_contents(__DIR__ . '/test_reel_reponse.json', json_encode($lines, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    echo "\n--- Format de la réponse ---\n";
-    echo "Clés racine        : " . implode(', ', array_keys($full)) . "\n";
-    $lines = $full['data'] ?? [];
-    echo "Type de 'data'     : " . gettype($lines) . "\n";
-    echo "Lignes limit=true  : " . (is_array($preview['data'] ?? null) ? count($preview['data']) : 'n/a') . "\n";
-    echo "Lignes limit=false : " . (is_array($lines) ? count($lines) : 'n/a') . "\n";
-
-    if (is_array($lines) && $lines) {
-        $first = reset($lines);
-        echo "Colonnes reçues    : " . implode(' | ', array_keys($first)) . "\n";
-        $attendues = ['ID_LIGNE_VENTE', 'ETABLISSEMENT', 'ID_PRODUIT', 'NOM PRODUIT', 'TYPE PRODUIT', 'CATEGORIE PRODUIT', 'TAUX DE TVA', 'NOM TVA', 'TVA', 'HT', 'TTC', 'ID_PARENT', 'ID_SALLES', 'NOM SALLES', 'HEURE VENTE'];
-        $manquantes = array_diff($attendues, array_keys($first));
-        echo "Colonnes manquantes: " . ($manquantes ? implode(', ', $manquantes) : 'aucune') . "\n";
-
-        echo "\n--- Contrôles ---\n";
+    echo "\n--- Contrôles ---\n";
+    echo "Lignes             : " . count($lines) . "\n";
+    if ($lines) {
         $heures = array_column($lines, 'HEURE VENTE');
-        $nonLues = array_filter($heures, fn($h) => toDatetime(is_scalar($h) ? (string) $h : null) === null);
-        echo "Exemple heure brute: " . json_encode($heures[0] ?? null) . " -> " . (toDatetime((string) ($heures[0] ?? '')) ?? 'NON RECONNUE') . "\n";
-        echo "Heures non lues    : " . count($nonLues) . "\n";
-        echo "Exemple montant TTC: " . json_encode($first['TTC'] ?? null) . "\n";
-        $ttc = array_sum(array_map(fn($l) => num($l['TTC'] ?? null) ?? 0, $lines));
-        $ttcSansOptions = array_sum(array_map(fn($l) => in_array((string) ($l['ID_PARENT'] ?? ''), ['', '0'], true) ? (num($l['TTC'] ?? null) ?? 0) : 0, $lines));
+        echo "Première / dernière: " . min($heures) . " / " . max($heures) . "\n";
+        $ttc = array_sum(array_column($lines, 'TTC'));
         echo "Total TTC          : " . number_format($ttc, 2, ',', ' ') . " €\n";
-        echo "Total TTC hors lignes enfants : " . number_format($ttcSansOptions, 2, ',', ' ') . " €\n";
-        echo "Lignes avec parent : " . count(array_filter($lines, fn($l) => !in_array((string) ($l['ID_PARENT'] ?? ''), ['', '0'], true))) . "\n";
+        $cats = array_count_values(array_map(fn($l) => $l['CATEGORIE PRODUIT'] ?? '(sans)', $lines));
+        arsort($cats);
+        echo "Catégories         : " . implode(', ', array_map(fn($k, $n) => "$k ($n)", array_keys($cats), $cats)) . "\n";
         $ids = array_column($lines, 'ID_LIGNE_VENTE');
         echo "ID de ligne uniques: " . (count(array_unique($ids)) === count($ids) ? 'oui' : 'NON (' . (count($ids) - count(array_unique($ids))) . ' doublons)') . "\n";
-
         echo "\n--- 3 premières lignes ---\n";
         foreach (array_slice($lines, 0, 3) as $l) echo json_encode($l, JSON_UNESCAPED_UNICODE) . "\n";
     }

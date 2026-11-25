@@ -278,6 +278,13 @@ offerts et annulations. L'Addition ne fournit ni couverts, ni serveurs, ni encai
 ```
 
 Une journée de L'Addition va jusqu'à 5 h le lendemain (`CAISSE_HEURE_BASCULE`), d'où un passage à 5 h 30.
+
+**L'Addition depuis le 20/11/2026** : l'ancienne route `reporting-api…/dataExport/getOrderLines/`
+a été supprimée par L'Addition (erreur 404). Le script se connecte toujours avec les mêmes
+identifiants, puis télécharge l'export Excel « Lignes de ventes » du nouveau reporting
+(`data.laddition.com/scripts/reporting/v1/SalesDocumentLines.php`, feuille `SalesDocumentLines`).
+Les lignes d'une période sont remplacées à chaque passage, et les catégories nouvelles sont
+classées solide / liquide d'après la typologie de L'Addition (un classement déjà fait reste).
 Les scripts sont idempotents : les relancer sur une période ne crée pas de doublon.
 Chaque passage est tracé dans `sync_runs` et visible dans le menu **Caisses**.
 
