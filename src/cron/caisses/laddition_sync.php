@@ -181,6 +181,12 @@ function httpRaw(string $url): array
  */
 function getOrderLines(array $company, string $from, string $to): array
 {
+    return ladditionLignesExport(getExport($company, $from, $to), (int) $company['id_company']);
+}
+
+/** Classeur complet de l'export (feuilles SalesDocumentLines, SalesDocument, …). */
+function getExport(array $company, string $from, string $to): array
+{
     $db = trim((string) ($company['company_db_name'] ?? ''));
     if ($db === '') {
         throw new RuntimeException("Nom de base L'Addition absent pour l'établissement {$company['id_company']}");
@@ -196,51 +202,67 @@ function getOrderLines(array $company, string $from, string $to): array
     if ($code !== 200 || strncmp($raw, "PK", 2) !== 0) {
         throw new RuntimeException("Export L'Addition SalesDocumentLines (HTTP $code) : pas un fichier Excel");
     }
-    return ladditionLignesExport(xlsxSheets($raw), (int) $company['id_company']);
+    return xlsxSheets($raw);
+}
+
+/** Lecture d'une feuille de l'export : [lignes de données, fonction d'accès par nom de colonne]. */
+function ladditionFeuille(array $feuilles, string $nom, array $requises): array
+{
+    $rows = $feuilles[$nom] ?? null;
+    if (!$rows) {
+        throw new RuntimeException("Export L'Addition : feuille $nom absente (" . implode(', ', array_keys($feuilles)) . ')');
+    }
+    $entete = array_map(fn($v) => trim((string) $v), array_shift($rows));
+    $col = array_flip($entete);
+    foreach ($requises as $requise) {
+        if (!isset($col[$requise])) {
+            throw new RuntimeException("Export L'Addition : colonne « $requise » absente de $nom, le format a changé");
+        }
+    }
+    $rows = array_values(array_filter($rows, fn($r) => trim((string) ($r[$col['Etablissement'] ?? 0] ?? '')) !== 'Total'));
+    return [$rows, fn(array $r, string $c) => isset($col[$c]) ? ($r[$col[$c]] ?? null) : null];
+}
+
+function exportTexte($x): ?string
+{
+    $x = $x === null ? '' : trim((string) $x);
+    return ($x === '' || $x === '-') ? null : $x;
+}
+
+function exportMontant($x): float
+{
+    return (float) str_replace([',', ' '], ['.', ''], (string) ($x ?? 0));
+}
+
+/** Numéro de série Excel (heure locale) -> 'Y-m-d H:i:s'. */
+function exportHeure($x): ?string
+{
+    return is_numeric($x) ? gmdate('Y-m-d H:i:s', (int) round(((float) $x - 25569) * 86400)) : exportTexte($x);
 }
 
 /** Feuille « SalesDocumentLines » de l'export -> lignes au format de l'ancienne API. */
 function ladditionLignesExport(array $feuilles, int $idCompany): array
 {
-    $rows = $feuilles['SalesDocumentLines'] ?? null;
-    if (!$rows) {
-        throw new RuntimeException("Export L'Addition : feuille SalesDocumentLines absente (" . implode(', ', array_keys($feuilles)) . ')');
-    }
-    $entete = array_map(fn($v) => trim((string) $v), array_shift($rows));
-    $col = array_flip($entete);
-    foreach (['ID', 'Timestamp', 'Nom', 'Prix TTC', 'Taux'] as $requise) {
-        if (!isset($col[$requise])) {
-            throw new RuntimeException("Export L'Addition : colonne « $requise » absente, le format a changé");
-        }
-    }
-    $v = fn(array $r, string $nom) => isset($col[$nom]) ? ($r[$col[$nom]] ?? null) : null;
-    $texte = function ($x): ?string {
-        $x = $x === null ? '' : trim((string) $x);
-        return ($x === '' || $x === '-') ? null : $x;
-    };
+    [$rows, $v] = ladditionFeuille($feuilles, 'SalesDocumentLines', ['ID', 'Timestamp', 'Nom', 'Prix TTC', 'Taux']);
 
     $lignes = [];
     foreach ($rows as $r) {
-        $id = $texte($v($r, 'ID'));
-        if ($id === null || trim((string) $v($r, 'Etablissement')) === 'Total') continue;
+        $id = exportTexte($v($r, 'ID'));
+        if ($id === null) continue;
 
-        // Timestamp = numéro de série Excel en heure locale
-        $ts = $v($r, 'Timestamp');
-        $heure = is_numeric($ts) ? gmdate('Y-m-d H:i:s', (int) round(((float) $ts - 25569) * 86400)) : $texte($ts);
-
-        $nomTva = $texte($v($r, 'Taux'));                    // « 10% », « 5,5% »
+        $nomTva = exportTexte($v($r, 'Taux'));                // « 10% », « 5,5% »
         $taux = $nomTva !== null ? (float) str_replace([',', '%', ' '], ['.', '', ''], $nomTva) / 100 : null;
-        $ttc = (float) str_replace(',', '.', (string) ($v($r, 'Prix TTC') ?? 0));
+        $ttc = exportMontant($v($r, 'Prix TTC'));             // net, remises déduites
         $ht = $taux !== null ? round($ttc / (1 + $taux), 2) : null;
 
         $lignes[] = [
             'ID_LIGNE_VENTE'    => $id,
-            'ETABLISSEMENT'     => $texte($v($r, 'Etablissement')),
-            'HEURE VENTE'       => $heure,
-            'TYPE PRODUIT'      => $texte($v($r, 'TAG_TypeProduit')),
-            'CATEGORIE PRODUIT' => $texte($v($r, 'TAG_Catégorie')),
-            'ID_PRODUIT'        => $texte($v($r, 'ID produit')),
-            'NOM PRODUIT'       => $texte($v($r, 'Nom')),
+            'ETABLISSEMENT'     => exportTexte($v($r, 'Etablissement')),
+            'HEURE VENTE'       => exportHeure($v($r, 'Timestamp')),
+            'TYPE PRODUIT'      => exportTexte($v($r, 'TAG_TypeProduit')),
+            'CATEGORIE PRODUIT' => exportTexte($v($r, 'TAG_Catégorie')),
+            'ID_PRODUIT'        => exportTexte($v($r, 'ID produit')),
+            'NOM PRODUIT'       => exportTexte($v($r, 'Nom')),
             'TAUX DE TVA'       => $taux,
             'NOM TVA'           => $nomTva,
             'HT'                => $ht,
@@ -248,11 +270,65 @@ function ladditionLignesExport(array $feuilles, int $idCompany): array
             'TTC'               => $ttc,
             'ID_PARENT'         => null, // l'export donne le nom du menu, pas son identifiant
             'ID_SALLES'         => null,
-            'NOM SALLES'        => $texte($v($r, 'TAG_Salle')),
-            'TYPOLOGIE'         => $texte($v($r, 'TAG_Typologie')), // « Solide », « Liquide (Alcool) », « N/D »
+            'NOM SALLES'        => exportTexte($v($r, 'TAG_Salle')),
+            'TYPOLOGIE'         => exportTexte($v($r, 'TAG_Typologie')), // « Solide », « Liquide (Alcool) », « N/D »
+            // Depuis la migration 025
+            'ID TICKET'         => exportTexte($v($r, 'ID Ticket')),
+            'SERVEUR'           => exportTexte($v($r, 'Nom user')),
+            'TABLE'             => exportTexte($v($r, 'TAG_Table')),
+            'REMISE TTC'        => exportMontant($v($r, 'Remises TTC')),
+            'OFFERT TTC'        => exportMontant($v($r, 'Offerts TTC')),
         ];
     }
     return $lignes;
+}
+
+/** Feuille « SalesDocument » : un ticket (addition) par ligne, avec couverts et paiements. */
+function ladditionTicketsExport(array $feuilles): array
+{
+    [$rows, $v] = ladditionFeuille($feuilles, 'SalesDocument', ['ID Ticket', 'Jour', 'Couverts', 'Total TTC', 'Paiements']);
+    $tickets = [];
+    foreach ($rows as $r) {
+        $id = exportTexte($v($r, 'ID Ticket'));
+        $jour = $v($r, 'Jour');
+        $jour = is_numeric($jour) ? xlsxDate($jour) : exportTexte($jour);
+        if ($id === null || $jour === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $jour)) continue;
+        $tickets[] = [
+            'id'        => $id,
+            'jour'      => $jour,
+            'debut'     => exportHeure($v($r, 'Début ticket')),
+            'fin'       => exportHeure($v($r, 'Fin ticket')),
+            'couverts'  => (int) exportMontant($v($r, 'Couverts')),
+            'serveur'   => exportTexte($v($r, 'Utilisateur')),
+            'type'      => exportTexte($v($r, 'TAG_Type')),
+            'salle'     => exportTexte($v($r, 'Salle')),
+            'table'     => exportTexte($v($r, 'Table')),
+            'total_ttc' => exportMontant($v($r, 'Total TTC')),
+            'total_ht'  => exportMontant($v($r, 'Total HT')),
+            'tva'       => exportMontant($v($r, 'TVA')),
+            'remises'   => exportMontant($v($r, 'Remises')),
+            'offerts'   => exportMontant($v($r, 'Offerts')),
+            'paiements' => exportTexte($v($r, 'Paiements')),
+        ];
+    }
+    return $tickets;
+}
+
+/** « CB(103,50), Espèces(20,00) » -> ['CB' => 103.5, 'Espèces' => 20.0] (modes répétés additionnés). */
+function ladditionPaiements(?string $texte): array
+{
+    $out = [];
+    if ($texte === null) return $out;
+    preg_match_all('/([^()]+?)\s*\(\s*(-?[\d\s.,]+)\s*\)/u', $texte, $m, PREG_SET_ORDER);
+    foreach ($m as $p) {
+        $mode = trim($p[1], " ,;\t\n");
+        if ($mode === '') continue;
+        $montant = str_replace(' ', '', $p[2]);
+        // « 1.234,50 » ou « 103,50 » ou « 103.50 »
+        if (str_contains($montant, ',')) $montant = str_replace(['.', ','], ['', '.'], $montant);
+        $out[$mode] = round(($out[$mode] ?? 0) + (float) $montant, 2);
+    }
+    return $out;
 }
 
 /**
@@ -301,19 +377,18 @@ function num($v): ?float
  */
 function saveOrderLines(PDO $pdo, int $idCompany, array $lines, ?string $from = null, ?string $to = null): int
 {
+    $cols = ['id_company', 'id_ligne_vente', 'etablissement', 'heure_vente', 'heure_vente_raw', 'type_produit',
+             'categorie_produit', 'id_produit', 'nom_produit', 'taux_tva', 'nom_tva', 'ht', 'tva', 'ttc',
+             'id_parent', 'id_salle', 'nom_salle'];
+    $detail = ladditionMigration025($pdo); // ticket, serveur, table, remise, offert
+    if ($detail) {
+        array_push($cols, 'ticket_id', 'serveur', 'table_nom', 'remise_ttc', 'offert_ttc');
+    }
+    $maj = implode(', ', array_map(fn($c) => "$c=VALUES($c)", array_slice($cols, 2)));
     $stmt = $pdo->prepare(
-        'INSERT INTO laddition_order_lines
-            (id_company, id_ligne_vente, etablissement, heure_vente, heure_vente_raw, type_produit,
-             categorie_produit, id_produit, nom_produit, taux_tva, nom_tva, ht, tva, ttc,
-             id_parent, id_salle, nom_salle)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-         ON DUPLICATE KEY UPDATE
-            etablissement=VALUES(etablissement), heure_vente=VALUES(heure_vente),
-            heure_vente_raw=VALUES(heure_vente_raw), type_produit=VALUES(type_produit),
-            categorie_produit=VALUES(categorie_produit), id_produit=VALUES(id_produit),
-            nom_produit=VALUES(nom_produit), taux_tva=VALUES(taux_tva), nom_tva=VALUES(nom_tva),
-            ht=VALUES(ht), tva=VALUES(tva), ttc=VALUES(ttc), id_parent=VALUES(id_parent),
-            id_salle=VALUES(id_salle), nom_salle=VALUES(nom_salle)'
+        'INSERT INTO laddition_order_lines (' . implode(', ', $cols) . ')
+         VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')
+         ON DUPLICATE KEY UPDATE ' . $maj
     );
     $n = 0;
     $pdo->beginTransaction();
@@ -328,7 +403,7 @@ function saveOrderLines(PDO $pdo, int $idCompany, array $lines, ?string $from = 
     foreach ($lines as $l) {
         if (empty($l['ID_LIGNE_VENTE'])) continue;
         $parent = isset($l['ID_PARENT']) ? (string) $l['ID_PARENT'] : '';
-        $stmt->execute([
+        $valeurs = [
             $idCompany,
             (string) $l['ID_LIGNE_VENTE'],
             isset($l['ETABLISSEMENT']) ? trim((string) $l['ETABLISSEMENT']) : null,
@@ -346,11 +421,65 @@ function saveOrderLines(PDO $pdo, int $idCompany, array $lines, ?string $from = 
             ($parent === '' || $parent === '0') ? null : $parent, // "0" = pas de parent
             isset($l['ID_SALLES']) ? (string) $l['ID_SALLES'] : null,
             $l['NOM SALLES'] ?? null,
-        ]);
+        ];
+        if ($detail) {
+            array_push($valeurs, $l['ID TICKET'] ?? null, $l['SERVEUR'] ?? null, $l['TABLE'] ?? null,
+                       num($l['REMISE TTC'] ?? null), num($l['OFFERT TTC'] ?? null));
+        }
+        $stmt->execute($valeurs);
         $n++;
     }
     $pdo->commit();
     return $n;
+}
+
+/** Migration 025 passée ? (tables des tickets et colonnes de détail des lignes) */
+function ladditionMigration025(PDO $pdo): bool
+{
+    static $ok = null;
+    if ($ok === null) {
+        try {
+            $pdo->query('SELECT 1 FROM laddition_tickets LIMIT 0');
+            $ok = true;
+        } catch (PDOException $e) {
+            $ok = false;
+        }
+    }
+    return $ok;
+}
+
+/** Enregistre les tickets et paiements d'une période (remplace ceux déjà en base pour ces journées). */
+function saveTickets(PDO $pdo, int $idCompany, array $tickets, string $from, string $to): int
+{
+    if (!$tickets) return 0;
+    $pdo->beginTransaction();
+    foreach (['laddition_tickets', 'laddition_paiements'] as $table) {
+        $pdo->prepare("DELETE FROM {$table} WHERE id_company = ? AND jour BETWEEN ? AND ?")->execute([$idCompany, $from, $to]);
+    }
+    $t = $pdo->prepare(
+        'INSERT INTO laddition_tickets
+            (id_company, id_ticket, jour, debut, fin, couverts, serveur, type, salle, table_nom,
+             total_ttc, total_ht, tva, remises, offerts, paiements)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE jour=VALUES(jour), debut=VALUES(debut), fin=VALUES(fin), couverts=VALUES(couverts),
+            serveur=VALUES(serveur), type=VALUES(type), salle=VALUES(salle), table_nom=VALUES(table_nom),
+            total_ttc=VALUES(total_ttc), total_ht=VALUES(total_ht), tva=VALUES(tva), remises=VALUES(remises),
+            offerts=VALUES(offerts), paiements=VALUES(paiements)'
+    );
+    $p = $pdo->prepare(
+        'INSERT INTO laddition_paiements (id_company, id_ticket, mode, jour, montant) VALUES (?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE jour=VALUES(jour), montant=VALUES(montant)'
+    );
+    foreach ($tickets as $k) {
+        $t->execute([$idCompany, $k['id'], $k['jour'], $k['debut'], $k['fin'], $k['couverts'], $k['serveur'],
+                     $k['type'], $k['salle'], $k['table'], $k['total_ttc'], $k['total_ht'], $k['tva'],
+                     $k['remises'], $k['offerts'], $k['paiements'] !== null ? mb_substr($k['paiements'], 0, 255) : null]);
+        foreach (ladditionPaiements($k['paiements']) as $mode => $montant) {
+            $p->execute([$idCompany, $k['id'], mb_substr($mode, 0, 100), $k['jour'], $montant]);
+        }
+    }
+    $pdo->commit();
+    return count($tickets);
 }
 
 function logRun(PDO $pdo, string $account, string $from, string $to, int $n, string $status, ?string $msg): void
@@ -405,9 +534,15 @@ foreach ($config['laddition_accounts'] as $acc) {
             $id    = (int) $c['id_company'];
             $nom   = trim($c['company_name'] ?? (string) $id);
             // L'export est par journée de service (coupure à 5 h) : pas besoin du lendemain
-            $lines = getOrderLines($c, $from, $to);
+            $export = getExport($c, $from, $to);
+            $lines = ladditionLignesExport($export, $id);
             $total += saveOrderLines($pdo, $id, $lines, $from, $to);
             logMsg("$label / $nom : " . count($lines) . " lignes ($from → $to)");
+            if (ladditionMigration025($pdo)) {
+                logMsg('   → ' . saveTickets($pdo, $id, ladditionTicketsExport($export), $from, $to) . ' tickets (couverts, serveurs, paiements)');
+            } else {
+                logMsg('   → tickets, couverts et paiements non enregistrés : migration 025 à passer');
+            }
             if ($classees = classerCategoriesNouvelles($pdo, $lines)) {
                 logMsg("   → $classees nouvelle(s) catégorie(s) classée(s) solide / liquide d'après L'Addition");
             }

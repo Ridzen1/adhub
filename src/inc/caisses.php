@@ -15,7 +15,8 @@ require_once __DIR__ . '/daily.php';
  *
  * Les deux caisses n'exposent pas les mêmes informations :
  *   - Popina : tickets, couverts, serveurs, paiements, TVA, offerts, annulations ;
- *   - L'Addition : lignes de vente seulement (pas de couverts, de serveur ni de paiement).
+ *   - L'Addition : lignes de vente ; depuis la migration 025 (export du nouveau reporting),
+ *     aussi les tickets, couverts, serveurs, offerts et paiements.
  * Une analyse sans donnée pour la source du restaurant est simplement masquée.
  */
 
@@ -91,6 +92,23 @@ function caisse_z_condition(string $alias): string
                         WHERE cez.project_id = {$alias}.project_id AND cez.source = 'laddition')";
 }
 
+/**
+ * Tickets L'Addition (couverts, serveurs, paiements), migration 025. Tant que les tables
+ * n'existent pas, les analyses s'en passent.
+ */
+function caisse_laddition_tickets_disponible(): bool
+{
+    static $ok = null;
+    if ($ok === null) {
+        try {
+            $ok = (bool) get_db()->query("SHOW TABLES LIKE 'laddition_tickets'")->fetchColumn();
+        } catch (Throwable $e) {
+            $ok = false;
+        }
+    }
+    return $ok;
+}
+
 function caisse_sources_projet(int $projectId): array
 {
     return array_values(array_unique(array_column(caisse_etablissements_projet($projectId), 'source')));
@@ -111,6 +129,10 @@ function caisse_sources_projet(int $projectId): array
 function caisse_articles_sql(int $projectId, string $du, string $au): array
 {
     $b = CAISSE_HEURE_BASCULE;
+    // Colonnes de détail L'Addition (migration 025)
+    [$offert, $serveur, $ticket] = caisse_laddition_tickets_disponible()
+        ? ['COALESCE(lo.offert_ttc, 0)', 'lo.serveur', 'lo.ticket_id']
+        : ['0', 'NULL', 'NULL'];
     $sql = "(
         SELECT pl.jour_caisse AS jour, HOUR(pl.date_ligne) AS heure,
                COALESCE(pl.categorie_parent, '(sans catégorie)') AS categorie,
@@ -127,8 +149,8 @@ function caisse_articles_sql(int $projectId, string $du, string $au): array
         SELECT DATE(lo.heure_vente - INTERVAL {$b} HOUR) AS jour, HOUR(lo.heure_vente) AS heure,
                COALESCE(lo.categorie_produit, '(sans catégorie)') AS categorie,
                lo.type_produit AS sous_categorie, lo.nom_produit AS produit,
-               1 AS quantite, COALESCE(lo.ttc, 0) AS ttc, COALESCE(lo.ht, 0) AS ht, 0 AS offert,
-               lo.nom_salle AS salle, NULL AS serveur, NULL AS ticket, 'laddition' AS source
+               1 AS quantite, COALESCE(lo.ttc, 0) AS ttc, COALESCE(lo.ht, 0) AS ht, {$offert} AS offert,
+               lo.nom_salle AS salle, {$serveur} AS serveur, {$ticket} AS ticket, 'laddition' AS source
         FROM laddition_order_lines lo
         JOIN caisse_etablissements ce
           ON ce.source = 'laddition' AND ce.id_externe = lo.id_company
@@ -221,6 +243,27 @@ function caisse_resume_jour(int $projectId, string $jour): ?array
         $ht += (float) $l['ht'];
     }
 
+    // L'Addition : tickets de la journée (couverts, additions, remises, offerts), migration 025
+    $offerts = 0.0;
+    if ((int) $l['n'] > 0 && caisse_laddition_tickets_disponible()) {
+        $t = caisse_requete(
+            "SELECT COUNT(*) AS n, SUM(lt.couverts) AS couverts, SUM(lt.remises) AS remises,
+                    SUM(lt.offerts) AS offerts
+             FROM laddition_tickets lt
+             JOIN caisse_etablissements ce ON ce.source = 'laddition' AND ce.id_externe = lt.id_company
+             WHERE ce.project_id = :pid AND lt.jour = :jour",
+            ['pid' => $projectId, 'jour' => $jour]
+        )[0];
+        if ((int) $t['n'] > 0) {
+            $avecCouverts = true;
+            $couverts += (int) $t['couverts'];
+            $commandes += (int) $t['n'];
+            $remises += (float) $t['remises'];
+            // L'Addition donne les offerts à part (le CA est déjà net) : pas de double compte
+            $offerts += (float) $t['offerts'];
+        }
+    }
+
     if (!$aDesDonnees) {
         return null;
     }
@@ -248,7 +291,7 @@ function caisse_resume_jour(int $projectId, string $jour): ?array
             'remises'      => $remises > 0 ? round($remises, 2) : null,
             // Popina compte les offerts dans les réductions du Z : les reporter aussi
             // ici les compterait deux fois. Le détail ligne à ligne reste dans l'analyse.
-            'offerts'      => null,
+            'offerts'      => $offerts > 0 ? round($offerts, 2) : null,
             'ticket_moyen' => $commandes > 0 ? round($ttc / $commandes, 2) : null,
             'ca_solide'    => $solide > 0 ? round($solide, 2) : null,
             'ca_liquide'   => $liquide > 0 ? round($liquide, 2) : null,
@@ -425,7 +468,7 @@ function analyse_kpis(int $projectId, string $du, string $au): array
     $n1au = (new DateTimeImmutable($au))->modify('-364 days')->format('Y-m-d');
     $n1 = $somme($n1du, $n1au);
 
-    // Tickets, annulations et pourboires : Popina uniquement
+    // Tickets : Popina et L'Addition (migration 025) ; annulations et pourboires : Popina
     $p = caisse_requete(
         "SELECT COALESCE(SUM(pc.commandes),0) AS tickets, COALESCE(SUM(pc.pourboires),0) AS pourboires,
                 COUNT(*) AS z
@@ -434,6 +477,15 @@ function analyse_kpis(int $projectId, string $du, string $au): array
          WHERE ce.project_id = :pid AND pc.jour_caisse BETWEEN :du AND :au",
         ['pid' => $projectId, 'du' => $du, 'au' => $au]
     )[0];
+    if (caisse_laddition_tickets_disponible()) {
+        $p['tickets'] += (int) caisse_requete(
+            "SELECT COUNT(*) AS n
+             FROM laddition_tickets lt
+             JOIN caisse_etablissements ce ON ce.source = 'laddition' AND ce.id_externe = lt.id_company
+             WHERE ce.project_id = :pid AND lt.jour BETWEEN :du AND :au",
+            ['pid' => $projectId, 'du' => $du, 'au' => $au]
+        )[0]['n'];
+    }
     $annul = caisse_requete(
         "SELECT COUNT(*) AS n, COALESCE(SUM(pl.brut_ttc),0) AS ttc
          FROM popina_lignes pl
@@ -546,7 +598,7 @@ function analyse_par_salle(int $projectId, string $du, string $au): array
     );
 }
 
-/** Popina uniquement : L'Addition ne transmet pas le serveur. */
+/** Popina, et L'Addition depuis la migration 025. */
 function analyse_par_serveur(int $projectId, string $du, string $au): array
 {
     [$v, $p] = caisse_articles_sql($projectId, $du, $au);
@@ -557,16 +609,26 @@ function analyse_par_serveur(int $projectId, string $du, string $au): array
     );
 }
 
-/** Popina uniquement. */
+/** Encaissements par mode : Popina, et L'Addition depuis la migration 025. */
 function analyse_paiements(int $projectId, string $du, string $au): array
 {
+    $sql = "SELECT pp.mode, pp.montant
+            FROM popina_caisses_paiements pp
+            JOIN caisse_etablissements ce ON ce.source = 'popina' AND ce.id_externe = pp.id_etablissement
+            WHERE ce.project_id = :pid AND pp.jour_caisse BETWEEN :du AND :au";
+    $params = ['pid' => $projectId, 'du' => $du, 'au' => $au];
+    if (caisse_laddition_tickets_disponible()) {
+        $sql .= "
+            UNION ALL
+            SELECT lp.mode, lp.montant
+            FROM laddition_paiements lp
+            JOIN caisse_etablissements ce ON ce.source = 'laddition' AND ce.id_externe = lp.id_company
+            WHERE ce.project_id = :pid_l AND lp.jour BETWEEN :du_l AND :au_l";
+        $params += ['pid_l' => $projectId, 'du_l' => $du, 'au_l' => $au];
+    }
     return caisse_requete(
-        "SELECT pp.mode, SUM(pp.montant) AS montant
-         FROM popina_caisses_paiements pp
-         JOIN caisse_etablissements ce ON ce.source = 'popina' AND ce.id_externe = pp.id_etablissement
-         WHERE ce.project_id = :pid AND pp.jour_caisse BETWEEN :du AND :au
-         GROUP BY pp.mode HAVING montant <> 0 ORDER BY montant DESC",
-        ['pid' => $projectId, 'du' => $du, 'au' => $au]
+        "SELECT mode, SUM(montant) AS montant FROM ({$sql}) t
+         GROUP BY mode HAVING montant <> 0 ORDER BY montant DESC", $params
     );
 }
 
@@ -609,20 +671,34 @@ function analyse_tva(int $projectId, string $du, string $au): array
          ) t WHERE taux IS NOT NULL GROUP BY taux ORDER BY taux", $params);
 }
 
-/** Offerts et annulations ligne par ligne (Popina), les plus gros en premier. */
+/** Offerts et annulations ligne par ligne (Popina ; offerts L'Addition depuis la migration 025), les plus gros en premier. */
 function analyse_offerts_annulations(int $projectId, string $du, string $au, int $limite = 30): array
 {
     $limite = max(1, min(200, $limite));
+    $sql = "SELECT pl.jour_caisse AS jour, pl.date_ligne, pl.serveur, pl.table_nom, pl.nom AS produit,
+                   pl.quantite, pl.brut_ttc, pl.offert_ttc, pl.annule
+            FROM popina_lignes pl
+            JOIN caisse_etablissements ce ON ce.source = 'popina' AND ce.id_externe = pl.id_etablissement
+            WHERE ce.project_id = :pid AND pl.jour_caisse BETWEEN :du AND :au
+              AND pl.type_ligne = 'article' AND (pl.annule = 1 OR pl.offert_ttc > 0)";
+    $params = ['pid' => $projectId, 'du' => $du, 'au' => $au];
+    if (caisse_laddition_tickets_disponible()) {
+        $b = CAISSE_HEURE_BASCULE;
+        $sql .= "
+            UNION ALL
+            SELECT DATE(lo.heure_vente - INTERVAL {$b} HOUR), lo.heure_vente, lo.serveur, lo.table_nom,
+                   lo.nom_produit, 1, lo.offert_ttc, lo.offert_ttc, 0
+            FROM laddition_order_lines lo
+            JOIN caisse_etablissements ce ON ce.source = 'laddition' AND ce.id_externe = lo.id_company
+            WHERE ce.project_id = :pid_l AND lo.offert_ttc > 0
+              AND lo.heure_vente >= :du_l + INTERVAL {$b} HOUR
+              AND lo.heure_vente <  :au_l + INTERVAL 1 DAY + INTERVAL {$b} HOUR";
+        $params += ['pid_l' => $projectId, 'du_l' => $du, 'au_l' => $au];
+    }
     return caisse_requete(
-        "SELECT pl.jour_caisse AS jour, pl.date_ligne, pl.serveur, pl.table_nom, pl.nom AS produit,
-                pl.quantite, pl.brut_ttc, pl.offert_ttc, pl.annule
-         FROM popina_lignes pl
-         JOIN caisse_etablissements ce ON ce.source = 'popina' AND ce.id_externe = pl.id_etablissement
-         WHERE ce.project_id = :pid AND pl.jour_caisse BETWEEN :du AND :au
-           AND pl.type_ligne = 'article' AND (pl.annule = 1 OR pl.offert_ttc > 0)
-         ORDER BY GREATEST(COALESCE(pl.offert_ttc,0), IF(pl.annule = 1, COALESCE(pl.brut_ttc,0), 0)) DESC
-         LIMIT {$limite}",
-        ['pid' => $projectId, 'du' => $du, 'au' => $au]
+        "SELECT * FROM ({$sql}) t
+         ORDER BY GREATEST(COALESCE(offert_ttc,0), IF(annule = 1, COALESCE(brut_ttc,0), 0)) DESC
+         LIMIT {$limite}", $params
     );
 }
 
