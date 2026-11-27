@@ -404,6 +404,14 @@ Migration : `database/028_qalimo_banques.sql`.
 - Onglet **Banque** de la société : solde par compte, entrées/sorties du mois et sur 12 mois,
   principales sorties, dernières opérations. Restaurants : pas de trésorerie, onglet réservé à la direction.
 - Comptes non reliés : listés dans Administration → Trésorerie.
+- **Depuis le 27/11/2026, la trésorerie ne vient plus de Pennylane** (`pennylane_maj_tresorerie()` ne
+  fait plus rien) : seules les banques Qalimo comptent.
+- Suivi mensuel des sociétés dont les banques sont dans Qalimo (hors restaurants) :
+  `qalimo_alimenter_suivi_mensuel()` écrit `financial_entries` (notes `auto:qalimo`).
+  Charges = toutes les sorties du mois (sauf virements entre deux comptes de la société) ;
+  revenus = entrées hors virements internes, prêts, apports, notaire et virements d'une autre société
+  du groupe. À partir du premier mois complet couvert par Qalimo ; saisies manuelles jamais écrasées,
+  mois `auto:pennylane` remplacés ; l'import Pennylane ne touche plus ces sociétés.
 
 ### Installation
 

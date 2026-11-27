@@ -239,6 +239,7 @@ try {
     foreach ($soldes as $pid => $s) {
         logMsg(sprintf('  société %d : trésorerie %s €', $pid, number_format($s, 2, ',', ' ')));
     }
+    logMsg('Suivi mensuel (revenus / charges) : ' . qalimo_alimenter_suivi_mensuel() . ' mois mis à jour');
     $nonRelies = count(array_filter($liens, fn($p) => $p === null));
     $msg = count($comptes) . ' comptes (' . $nonRelies . ' non reliés), ' . count($operations) . ' opérations';
     logMsg("OK : $msg");
