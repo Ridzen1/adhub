@@ -11,6 +11,50 @@
 header('Content-Type: application/json; charset=utf-8');
 function out(int $code, $data) { http_response_code($code); echo json_encode($data, JSON_UNESCAPED_UNICODE); exit; }
 
+// --- Banques (routes de l'application web, hors /api/v1) -------------------------------
+// Connexion : e-mail test@adhub.local / mot de passe « test » ; avec MOCK_TOTP=1 dans
+// l'environnement, un code à 6 chiffres est exigé (clé JBSWY3DPEHPK3PXP).
+$chemin = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if ($chemin === '/token') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(405, ['error' => 'POST attendu']);
+    $c = json_decode(file_get_contents('php://input'), true) ?: [];
+    if (($c['email'] ?? '') !== 'test@adhub.local' || ($c['password'] ?? '') !== 'test') out(401, ['error' => 'Adresse e-mail ou mot de passe incorrect']);
+    if (getenv('MOCK_TOTP') && !preg_match('/^\d{6}$/', (string) ($c['totp_code'] ?? ''))) out(401, ['requires_totp' => true]);
+    out(200, ['access_token' => 'jwt_test', 'id_compte' => 1, 'role' => []]);
+}
+if (in_array($chemin, ['/banks', '/transactions'], true)) {
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') out(405, ['error' => 'Lecture seule dans le mock']);
+    if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Bearer jwt_test') out(401, ['error' => 'Non connecté']);
+    // [id, unique_id, profil, banque, nom, solde, statut]
+    $comptes = [
+        [501, 'lx-hd-1', 9699, 'Crédit Agricole', 'Compte courant SCI HALLES HOTEL DIEU', '12450.32', 'active'],
+        [502, 'lx-hd-2', 9699, 'Crédit Agricole', 'Livret', 3000, 'active'],
+        [503, 'lx-cous', 9753, 'CIC', 'SCI COUSIMMO', -820.10, 'inactive'],
+        [504, 'lx-ad', 9759, 'Qonto', 'AD HOLDING', 45210.00, 'active'],
+        [505, 'lx-arn', 9755, 'BNP', 'Compte perso', 999, 'active'],          // profil ignoré
+        [506, 'lx-bell', null, 'Banque Populaire', 'SAS LE BELLEVUE', 18200.55, 'active'],
+        [507, 'lx-x', null, 'Shine', 'Compte mystère', 50, 'unconsented'],
+    ];
+    if ($chemin === '/banks') {
+        out(200, array_map(fn($c) => ['id' => $c[0], 'unique_id' => $c[1], 'id_profile_nom' => $c[2], 'nom' => $c[4], 'montant' => $c[5],
+            'status' => $c[6], 'provider' => 'linxo', 'compte_gestion' => $c[0] === 501, 'date_maj' => '2026-11-27T05:12:00Z',
+            'iban' => 'FR76 1234 5678 9012 3456 7890 ' . $c[0], 'bank_metadata' => ['name' => $c[3], 'logo' => '']], $comptes));
+    }
+    // 1 200 opérations réparties sur 14 mois, la plus récente en premier
+    $ops = [];
+    $t = strtotime('today');
+    for ($i = 0; $i < 1200; $i++) {
+        $c = $comptes[$i % 7];
+        $entree = $i % 3 === 0;
+        $ops[] = ['id' => 900000 + $i, 'unique_account_id' => $c[1], 'date_transac' => date('Y-m-d', $t - intdiv($i, 3) * 86400) . 'T00:00:00',
+                  'description' => $entree ? 'VIR LOYER LOCATAIRE ' . ($i % 5) : ['PRLV EDF', 'CB LEROY MERLIN', 'ECHEANCE PRET', 'FRAIS BANCAIRES'][$i % 4],
+                  'montant' => $entree ? 650 + $i % 7 * 10 : -(40 + $i % 11 * 15.5), 'balances' => [], 'id_transaction' => null];
+    }
+    if (!empty($_GET['date_min'])) $ops = array_values(array_filter($ops, fn($o) => substr($o['date_transac'], 0, 10) >= $_GET['date_min']));
+    $pp = (int) ($_GET['per_page'] ?? 100);
+    out(200, array_slice($ops, ((int) ($_GET['page'] ?? 1) - 1) * $pp, $pp));
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') out(405, ['message' => 'Lecture seule dans le mock']);
 if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Bearer qmcp_test') out(401, ['error' => 'Token invalide, expiré ou révoqué']);
 
