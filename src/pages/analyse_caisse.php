@@ -60,6 +60,7 @@ $parJour     = analyse_par_jour($id, $du, $au);
 $parSemaine  = analyse_par_jour_semaine($id, $du, $au);
 $parHeure    = analyse_par_heure($id, $du, $au);
 $services    = analyse_services($id, $du, $au);
+$ticketsServ = analyse_ticket_moyen_services($id, $du, $au);
 $categories  = analyse_par_categorie($id, $du, $au);
 $top         = analyse_produits($id, $du, $au, 15, 'DESC');
 $flop        = analyse_produits($id, $du, $au, 10, 'ASC');
@@ -227,12 +228,81 @@ require __DIR__ . '/../inc/layout_header.php';
             <?php endforeach; ?>
           </tbody>
         </table>
-        <div class="small text-muted p-2">Midi = ventes avant 16 h.</div>
+        <div class="small text-muted p-2">Midi = ventes avant <?= CAISSE_HEURE_SOIR ?> h.</div>
       </div>
     </div>
   </div>
   <?php endif; ?>
 </div>
+
+<!-- Ticket moyen midi / soir, jour par jour -->
+<?php if ($ticketsServ['jours']):
+  $avecCouverts = $ticketsServ['couverts_connus'];
+  $cellules = function (array $sv) use ($avecCouverts): string {
+      if ($sv['additions'] === 0) {
+          return '<td class="text-end text-muted" colspan="3">Pas de service</td>';
+      }
+      $principal = $avecCouverts ? $sv['par_couvert'] : $sv['par_addition'];
+      return '<td class="text-end fw-semibold">' . euro($principal, 2) . '</td>'
+           . ($avecCouverts
+               ? '<td class="text-end">' . ($sv['couverts'] !== null ? number_format($sv['couverts'], 0, ',', ' ') : '—') . '</td>'
+               : '<td class="text-end">' . number_format($sv['additions'], 0, ',', ' ') . '</td>')
+           . '<td class="text-end text-muted">' . euro($sv['ca']) . '</td>';
+  };
+  $tot = $ticketsServ['total']; ?>
+<div class="card mb-4" id="ticket-midi-soir">
+  <div class="card-header">Ticket moyen midi et soir, jour par jour</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <th rowspan="2" class="align-bottom">Jour</th>
+          <th colspan="3" class="text-center">Déjeuner</th>
+          <th colspan="3" class="text-center">Dîner</th>
+        </tr>
+        <tr>
+          <?php for ($i = 0; $i < 2; $i++): ?>
+            <th class="text-end">Ticket moyen</th>
+            <th class="text-end"><?= $avecCouverts ? 'Couverts' : 'Additions' ?></th>
+            <th class="text-end">CA TTC</th>
+          <?php endfor; ?>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($ticketsServ['jours'] as $jour => $js): ?>
+          <tr>
+            <td class="text-nowrap"><?= h(libelle_jour($jour)) ?></td>
+            <?= $cellules($js['midi']) . $cellules($js['soir']) ?>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+      <?php if (count($ticketsServ['jours']) > 1): ?>
+      <tfoot>
+        <tr class="fw-semibold">
+          <td>Période</td>
+          <?= $cellules($tot['midi']) . $cellules($tot['soir']) ?>
+        </tr>
+      </tfoot>
+      <?php endif; ?>
+    </table>
+    </div>
+    <div class="small text-muted p-2">
+      <?php if ($avecCouverts): ?>
+        Ticket moyen = CA TTC du service ÷ couverts.
+      <?php else: ?>
+        Ticket moyen = CA TTC du service ÷ nombre d'additions (la caisse ne donne pas les couverts par addition).
+      <?php endif; ?>
+      Une addition commencée avant <?= CAISSE_HEURE_SOIR ?> h compte pour le déjeuner, après pour le dîner.
+    </div>
+  </div>
+</div>
+<?php elseif ($zCourriel): ?>
+<div class="alert alert-secondary small">
+  Ticket moyen midi et soir : le Z quotidien reçu par courriel ne donne que le total de la journée,
+  sans l'heure des additions. Il n'est donc pas encore possible de séparer le déjeuner du dîner pour ce restaurant.
+</div>
+<?php endif; ?>
 
 <!-- Jours de la semaine -->
 <?php if (count($parSemaine) > 1): ?>

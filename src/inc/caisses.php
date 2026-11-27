@@ -30,6 +30,12 @@ const CAISSE_HEURE_BASCULE = 5;
 /** Jours repris par les synchros de caisse lancées sans date (cron) : une nuit manquée se rattrape seule. */
 const CAISSE_JOURS_RATTRAPAGE = 3;
 
+/**
+ * Heure qui sépare le midi du soir : un ticket commencé avant 16 h (et après la bascule
+ * de 5 h) compte pour le déjeuner, sinon pour le dîner.
+ */
+const CAISSE_HEURE_SOIR = 16;
+
 const CAISSE_SOURCES = ['laddition' => "L'Addition", 'popina' => 'Popina'];
 
 /**
@@ -551,15 +557,100 @@ function analyse_par_heure(int $projectId, string $du, string $au): array
     );
 }
 
-/** Midi (avant 16h) / soir, pour comparer les deux services. */
+/** Midi (avant CAISSE_HEURE_SOIR) / soir, pour comparer les deux services. */
 function analyse_services(int $projectId, string $du, string $au): array
 {
     [$v, $p] = caisse_articles_sql($projectId, $du, $au);
     return caisse_requete(
-        "SELECT CASE WHEN v.heure >= " . CAISSE_HEURE_BASCULE . " AND v.heure < 16 THEN 'Midi' ELSE 'Soir' END AS service,
+        "SELECT CASE WHEN v.heure >= " . CAISSE_HEURE_BASCULE . " AND v.heure < " . CAISSE_HEURE_SOIR . " THEN 'Midi' ELSE 'Soir' END AS service,
                 SUM(v.ttc) AS ttc, COUNT(DISTINCT v.ticket) AS tickets, COUNT(DISTINCT v.jour) AS jours
          FROM {$v} WHERE v.heure IS NOT NULL GROUP BY service ORDER BY service", $p
     );
+}
+
+/**
+ * Ticket moyen du déjeuner et du dîner, jour par jour.
+ *
+ * Chaque addition est rangée entière dans un service d'après son heure de début
+ * (avant CAISSE_HEURE_SOIR = midi, sinon soir) : une addition n'est jamais coupée en deux.
+ *   - L'Addition (tickets, migration 025) : CA, couverts et additions ;
+ *   - Popina : CA et additions (l'export Produits ne donne pas les couverts par ticket).
+ * Le Z quotidien reçu par courriel n'a pas d'heure : il n'apparaît pas ici.
+ *
+ * Renvoie ['jours' => [jour => ['midi' => [...], 'soir' => [...]]], 'total' => ['midi' => [...], 'soir' => [...]],
+ *          'couverts_connus' => bool]. Chaque service : ca, couverts (null si inconnus),
+ * additions, par_couvert, par_addition. Jours triés du plus récent au plus ancien.
+ */
+function analyse_ticket_moyen_services(int $projectId, string $du, string $au): array
+{
+    $b = CAISSE_HEURE_BASCULE;
+    $s = CAISSE_HEURE_SOIR;
+    $service = fn(string $heure) => "IF(HOUR({$heure}) >= {$b} AND HOUR({$heure}) < {$s}, 'midi', 'soir')";
+
+    // Popina : un ticket = ses articles non annulés ; l'heure est celle du 1er article commandé (sinon celle du ticket)
+    $sql = "SELECT t.jour, " . $service('t.debut') . " AS service,
+                   SUM(t.ca) AS ca, NULL AS couverts, COUNT(*) AS additions
+            FROM (
+                SELECT pl.jour_caisse AS jour, pl.ticket_id,
+                       COALESCE(MIN(pl.date_ligne), MIN(pl.ticket_date)) AS debut,
+                       SUM(COALESCE(pl.net_ttc, 0)) AS ca
+                FROM popina_lignes pl
+                JOIN caisse_etablissements ce ON ce.source = 'popina' AND ce.id_externe = pl.id_etablissement
+                WHERE ce.project_id = :pid_p AND pl.jour_caisse BETWEEN :du_p AND :au_p
+                  AND pl.type_ligne = 'article' AND pl.annule = 0
+                GROUP BY pl.jour_caisse, pl.ticket_id
+            ) t
+            WHERE t.debut IS NOT NULL
+            GROUP BY t.jour, service";
+    $params = ['pid_p' => $projectId, 'du_p' => $du, 'au_p' => $au];
+
+    if (caisse_laddition_tickets_disponible()) {
+        $sql .= "
+            UNION ALL
+            SELECT lt.jour, " . $service('COALESCE(lt.debut, lt.fin)') . " AS service,
+                   SUM(COALESCE(lt.total_ttc, 0)) AS ca, SUM(lt.couverts) AS couverts, COUNT(*) AS additions
+            FROM laddition_tickets lt
+            JOIN caisse_etablissements ce ON ce.source = 'laddition' AND ce.id_externe = lt.id_company
+            WHERE ce.project_id = :pid_l AND lt.jour BETWEEN :du_l AND :au_l
+              AND COALESCE(lt.debut, lt.fin) IS NOT NULL
+            GROUP BY lt.jour, service";
+        $params += ['pid_l' => $projectId, 'du_l' => $du, 'au_l' => $au];
+    }
+
+    $vide = ['ca' => 0.0, 'couverts' => null, 'additions' => 0];
+    $jours = [];
+    $total = ['midi' => $vide, 'soir' => $vide];
+    foreach (caisse_requete($sql, $params) as $r) {
+        $j = $r['jour'];
+        $sv = $r['service'];
+        $jours[$j] ??= ['midi' => $vide, 'soir' => $vide];
+        foreach ([&$jours[$j][$sv], &$total[$sv]] as &$cible) {
+            $cible['ca'] += (float) $r['ca'];
+            $cible['additions'] += (int) $r['additions'];
+            if ($r['couverts'] !== null) {
+                $cible['couverts'] = ($cible['couverts'] ?? 0) + (int) $r['couverts'];
+            }
+        }
+        unset($cible);
+    }
+    krsort($jours);
+
+    $couvertsConnus = false;
+    $calcul = function (array $x) use (&$couvertsConnus): array {
+        if ($x['couverts'] > 0) {
+            $couvertsConnus = true;
+        }
+        $x['par_couvert']  = $x['couverts'] > 0 ? $x['ca'] / $x['couverts'] : null;
+        $x['par_addition'] = $x['additions'] > 0 ? $x['ca'] / $x['additions'] : null;
+        return $x;
+    };
+    foreach ($jours as &$js) {
+        $js = ['midi' => $calcul($js['midi']), 'soir' => $calcul($js['soir'])];
+    }
+    unset($js);
+    $total = ['midi' => $calcul($total['midi']), 'soir' => $calcul($total['soir'])];
+
+    return ['jours' => $jours, 'total' => $total, 'couverts_connus' => $couvertsConnus];
 }
 
 function analyse_par_categorie(int $projectId, string $du, string $au): array
