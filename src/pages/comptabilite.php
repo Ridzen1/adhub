@@ -51,8 +51,9 @@ $ouvertes = pennylane_factures_ouvertes($noms, 'fournisseur', 40);
 $aEncaisser = pennylane_factures_ouvertes($noms, 'client', 20);
 $operations = pennylane_dernieres_transactions($noms, 25);
 $import   = pennylane_dernier_import();
-$comptes  = pennylane_comptes_projet($noms);
-$tresoMois = pennylane_tresorerie_mensuelle($noms);
+// Trésorerie : plus lue dans Pennylane depuis le 27/11/2026, elle est dans l'onglet Banque (Qalimo)
+$comptes  = [];
+$tresoMois = [];
 $tva      = pennylane_tva_projet($noms);
 $avecBanque = $s['nb_transactions'] > 0;
 $aujourdhui = date('Y-m-d');
@@ -156,6 +157,15 @@ require __DIR__ . '/../inc/layout_header.php';
         ]) ?>
   <?php endif; ?>
 </div>
+
+<?php if ($tva): ?>
+<div class="card mb-4"><div class="card-body small d-flex flex-wrap gap-3">
+  <?php foreach ($tva as $t): ?>
+    <span>TVA <?= h(mb_strtolower($t['frequence'] ?? '')) ?> en cours (<?= h(mb_strtolower($t['sens'] ?? '')) ?>) :
+      <strong><?= eur((float) $t['montant']) ?></strong></span>
+  <?php endforeach; ?>
+</div></div>
+<?php endif; ?>
 
 <?php if ($comptes || $tresoMois): ?>
 <div class="row g-4 mb-4">

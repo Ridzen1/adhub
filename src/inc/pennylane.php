@@ -594,8 +594,16 @@ function pennylane_alimenter_suivi_mensuel(): int
     );
     $ecrits = 0;
 
+    // Sociétés dont les banques sont dans Qalimo : leur suivi vient des opérations bancaires
+    // (qalimo_alimenter_suivi_mensuel), Pennylane ne l'écrit plus
+    require_once __DIR__ . '/qalimo_banques.php';
+    $parQalimo = array_flip(qalimo_banques_projets_tous());
+
     foreach ($projets as $projet) {
         $pid = (int) $projet['id'];
+        if ($projet['code'] !== 'restauration_exploitation' && isset($parQalimo[$pid])) {
+            continue;
+        }
         [$in, $params] = pl_in(pennylane_noms_projet($pid));
         $mois = [];
 
@@ -670,67 +678,13 @@ function pennylane_table_existe(string $table): bool
 }
 
 /**
- * Trésorerie de chaque société reliée.
- * 1. Si l'export contient les soldes des comptes (table pennylane_comptes), leur somme à la
- *    date du relevé devient le point de départ : rien à saisir.
- * 2. Sinon, le point de départ est le solde saisi dans la fiche ou la page Trésorerie.
- * On y ajoute ensuite les opérations bancaires Pennylane postérieures au point de départ.
- * Renvoie le nombre de sociétés mises à jour.
+ * Ancien calcul de la trésorerie à partir de Pennylane.
+ * Depuis le 27/11/2026, la trésorerie vient uniquement des banques lues dans Qalimo
+ * (inc/qalimo_banques.php) : cette fonction ne modifie plus rien. Gardée pour les pages qui l'appellent.
  */
 function pennylane_maj_tresorerie(): int
 {
-    if (!pennylane_tresorerie_prete()) {
-        return 0;
-    }
-    $pdo = get_db();
-
-    if (pennylane_table_existe('pennylane_comptes')) {
-        $ref = $pdo->prepare(
-            "UPDATE projects SET solde_reference = :s, solde_reference_le = :d
-             WHERE id = :p AND (solde_reference_le IS NULL OR solde_reference_le <= :d2)"
-        );
-        $soldes = $pdo->query(
-            "SELECT ps.project_id, SUM(c.solde) AS solde, MAX(c.releve_le) AS releve_le
-             FROM pennylane_comptes c
-             JOIN pennylane_societes ps ON ps.societe = c.societe AND ps.project_id IS NOT NULL
-             JOIN (SELECT societe_id, MAX(releve_le) AS dernier FROM pennylane_comptes GROUP BY societe_id) d
-               ON d.societe_id = c.societe_id AND d.dernier = c.releve_le
-             GROUP BY ps.project_id"
-        )->fetchAll();
-        foreach ($soldes as $r) {
-            $ref->execute(['s' => round((float) $r['solde'], 2), 'd' => $r['releve_le'],
-                           'd2' => $r['releve_le'], 'p' => (int) $r['project_id']]);
-        }
-    }
-
-    $projets = $pdo->query(
-        "SELECT DISTINCT p.id, p.solde_reference, p.solde_reference_le
-         FROM projects p JOIN pennylane_societes ps ON ps.project_id = p.id
-         WHERE p.solde_reference IS NOT NULL AND p.solde_reference_le IS NOT NULL"
-    )->fetchAll();
-    $maj = $pdo->prepare("UPDATE projects SET solde_bancaire = :s, solde_maj_le = :d WHERE id = :p");
-    // Les sociétés dont les banques sont lues chaque jour dans Qalimo gardent ce solde-là
-    require_once __DIR__ . '/qalimo_banques.php';
-    $parQalimo = array_flip(qalimo_banques_projets());
-    $n = 0;
-    foreach ($projets as $projet) {
-        if (isset($parQalimo[(int) $projet['id']])) {
-            continue;
-        }
-        [$in, $params] = pl_in(pennylane_noms_projet((int) $projet['id']));
-        $params['depuis'] = $projet['solde_reference_le'];
-        $r = pl_requete(
-            "SELECT COALESCE(SUM(montant), 0) AS mouvements, MAX(date_operation) AS derniere
-             FROM pennylane_transactions WHERE societe IN ($in) AND date_operation > :depuis", $params
-        )[0];
-        $maj->execute([
-            's' => round((float) $projet['solde_reference'] + (float) $r['mouvements'], 2),
-            'd' => $r['derniere'] ?? $projet['solde_reference_le'],
-            'p' => (int) $projet['id'],
-        ]);
-        $n++;
-    }
-    return $n;
+    return 0;
 }
 
 /** Comptes bancaires Pennylane d'une société, au dernier relevé */

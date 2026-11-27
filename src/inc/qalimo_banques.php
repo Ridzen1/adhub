@@ -219,6 +219,17 @@ function qalimo_banques_projets(): array
     )->fetchAll(PDO::FETCH_COLUMN));
 }
 
+/** Ids des sociétés qui ont au moins un compte Qalimo */
+function qalimo_banques_projets_tous(): array
+{
+    if (!qalimo_banques_disponible()) {
+        return [];
+    }
+    return array_map('intval', get_db()->query(
+        "SELECT DISTINCT project_id FROM qalimo_comptes WHERE project_id IS NOT NULL"
+    )->fetchAll(PDO::FETCH_COLUMN));
+}
+
 /* ------------------------------------------------------------------ */
 /* Indicateurs de l'onglet Banque (une seule société à la fois)        */
 /* ------------------------------------------------------------------ */
@@ -326,4 +337,133 @@ function qalimo_statut_compte(?string $statut): array
         '3', 'unconsented'   => ['Non synchronisé', 'warning'],
         default              => ['État ' . $statut, 'secondary'],
     };
+}
+
+/* ------------------------------------------------------------------ */
+/* Suivi mensuel (revenus / charges) à partir des banques Qalimo       */
+/* ------------------------------------------------------------------ */
+
+const QALIMO_SUIVI_AUTO = 'auto:qalimo';
+
+/**
+ * Ids des opérations qui sont des virements entre deux comptes d'une même société :
+ * une sortie et une entrée du même montant, sur deux comptes différents de la société,
+ * à 3 jours d'écart au plus. Ni charge ni revenu.
+ */
+function qalimo_virements_internes(array $operations): array
+{
+    $internes = [];
+    $entrees = array_values(array_filter($operations, fn($o) => (float) $o['montant'] > 0));
+    foreach ($operations as $s) {
+        if ((float) $s['montant'] >= 0) {
+            continue;
+        }
+        foreach ($entrees as $e) {
+            if (isset($internes[$e['id']]) || $e['compte_uid'] === $s['compte_uid']
+                || abs((float) $e['montant'] + (float) $s['montant']) > 0.005
+                || abs(strtotime($e['date_operation']) - strtotime($s['date_operation'])) > 3 * 86400) {
+                continue;
+            }
+            $internes[$s['id']] = true;
+            $internes[$e['id']] = true;
+            break;
+        }
+    }
+    return $internes;
+}
+
+/**
+ * Remplit le suivi mensuel (financial_entries) de chaque société dont les banques sont dans Qalimo :
+ *  - charges = toutes les sorties d'argent du mois (prélèvements, virements, CB, échéances de prêt…),
+ *    sauf les virements entre deux comptes de la société ;
+ *  - revenus = entrées du mois, sauf virements internes, prêts, apports, notaire et virements
+ *    venant d'une autre société du groupe (même règle que pour Pennylane).
+ * Les restaurants gardent leur suivi actuel (CA des caisses) : ils ne sont pas concernés.
+ * Les mois commencent au premier mois complet couvert par Qalimo ; une saisie manuelle n'est
+ * jamais écrasée. Renvoie le nombre de mois écrits.
+ */
+function qalimo_alimenter_suivi_mensuel(): int
+{
+    if (!qalimo_banques_disponible()) {
+        return 0;
+    }
+    require_once __DIR__ . '/financials.php';
+    $pdo = get_db();
+    $projets = $pdo->query(
+        "SELECT DISTINCT c.project_id FROM qalimo_comptes c
+         JOIN projects p ON p.id = c.project_id
+         JOIN project_types pt ON pt.id = p.project_type_id
+         WHERE pt.code <> 'restauration_exploitation'"
+    )->fetchAll(PDO::FETCH_COLUMN);
+
+    $nomsGroupe = [];
+    foreach ($pdo->query("SELECT name FROM projects") as $p) {
+        foreach (preg_split('#\s*/\s*#', mb_strtoupper($p['name'])) as $n) {
+            $n = trim(preg_replace('/^(SCI|SAS|SARL|SASU|EURL)\s+/u', '', $n));
+            if (mb_strlen($n) >= 4) $nomsGroupe[] = $n;
+        }
+    }
+
+    $ops = $pdo->prepare(
+        "SELECT o.id, o.compte_uid, o.date_operation, o.libelle, o.montant
+         FROM qalimo_operations o JOIN qalimo_comptes c ON c.unique_id = o.compte_uid
+         WHERE c.project_id = :p ORDER BY o.date_operation"
+    );
+    $existant = $pdo->prepare("SELECT notes FROM financial_entries WHERE project_id = :p AND period_date = :m");
+    $ecrits = 0;
+
+    foreach ($projets as $pid) {
+        $pid = (int) $pid;
+        $ops->execute(['p' => $pid]);
+        $liste = $ops->fetchAll();
+        if (!$liste) {
+            continue;
+        }
+        // Premier mois complet : un historique qui commence le 15 donnerait un mois tronqué
+        $premier = new DateTimeImmutable($liste[0]['date_operation']);
+        $debut = $premier->format('d') === '01' ? $premier->format('Y-m-01') : $premier->modify('first day of next month')->format('Y-m-01');
+
+        $internes = qalimo_virements_internes($liste);
+        $nomsSociete = array_filter($nomsGroupe, fn($n) => str_contains(mb_strtoupper(get_project_name_cache($pid)), $n));
+        $autresSocietes = array_values(array_diff($nomsGroupe, $nomsSociete));
+
+        $mois = [];
+        $d = new DateTimeImmutable($debut);
+        $fin = new DateTimeImmutable('first day of this month');
+        for (; $d <= $fin; $d = $d->modify('+1 month')) {
+            $mois[$d->format('Y-m-01')] = ['revenus' => 0.0, 'charges' => 0.0];
+        }
+        foreach ($liste as $o) {
+            $m = substr($o['date_operation'], 0, 7) . '-01';
+            if (!isset($mois[$m]) || isset($internes[$o['id']])) {
+                continue;
+            }
+            $montant = (float) $o['montant'];
+            if ($montant < 0) {
+                $mois[$m]['charges'] += -$montant;
+            } elseif (pl_est_un_revenu((string) $o['libelle'], $autresSocietes)) {
+                $mois[$m]['revenus'] += $montant;
+            }
+        }
+
+        foreach ($mois as $m => $v) {
+            $existant->execute(['p' => $pid, 'm' => $m]);
+            $ligne = $existant->fetch();
+            // Saisie manuelle (ou e-mail) : jamais écrasée ; les mois calculés depuis Pennylane sont remplacés
+            if ($ligne && !in_array($ligne['notes'], [QALIMO_SUIVI_AUTO, PL_SUIVI_AUTO], true)) {
+                continue;
+            }
+            upsert_financial_entry($pid, $m, round($v['revenus'], 2), round($v['charges'], 2), QALIMO_SUIVI_AUTO);
+            $ecrits++;
+        }
+    }
+    return $ecrits;
+}
+
+/** Nom d'une société (cache) */
+function get_project_name_cache(int $pid): string
+{
+    static $noms = null;
+    $noms ??= array_column(get_db()->query("SELECT id, name FROM projects")->fetchAll(), 'name', 'id');
+    return (string) ($noms[$pid] ?? '');
 }

@@ -1,193 +1,114 @@
 <?php
 require_once __DIR__ . '/../inc/access.php';
-require_once __DIR__ . '/../inc/double_auth.php';
-require_once __DIR__ . '/../inc/pennylane.php';
 require_once __DIR__ . '/../inc/qalimo_banques.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_direction();
 
 /**
- * Soldes de départ de la trésorerie : un solde bancaire réel par société, saisi une seule
- * fois par la direction. Chaque import Pennylane y ajoute ensuite les opérations bancaires.
+ * Trésorerie des sociétés : depuis le 27/11/2026 elle vient uniquement des banques lues
+ * chaque matin dans Qalimo (cron/qalimo/qalimo_banques_sync.php), plus de Pennylane.
+ * La page montre, société par société, les comptes repris et leur état, et les comptes
+ * qu'aucune société ne reprend. Aucun total entre sociétés.
  */
 
-$erreur = null;
-
-if (!pennylane_tresorerie_prete()) {
-    $pageTitle = 'Trésorerie';
-    require __DIR__ . '/../inc/layout_header.php';
-    echo page_header('Trésorerie des sociétés', '', '', 'Administration');
-    echo '<div class="alert alert-warning">Passez d\'abord la migration <code>015_tresorerie_pennylane.sql</code> '
-       . 'dans phpMyAdmin (base de production), puis rechargez cette page.</div>';
-    require __DIR__ . '/../inc/layout_footer.php';
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!csrf_valide()) {
-        $erreur = "La page a expiré, recommencez.";
+$pret = qalimo_banques_disponible();
+$comptes = $pret ? get_db()->query(
+    "SELECT c.*, p.name AS societe FROM qalimo_comptes c LEFT JOIN projects p ON p.id = c.project_id
+     ORDER BY (c.project_id IS NULL), p.name, c.solde DESC"
+)->fetchAll() : [];
+$parSociete = [];
+$nonRelies = [];
+foreach ($comptes as $c) {
+    if ($c['project_id'] === null) {
+        $nonRelies[] = $c;
     } else {
-        $dateCommune = ($_POST['date_commune'] ?? '') !== '' ? $_POST['date_commune'] : null;
-        $lignes = [];
-        foreach ((array) ($_POST['solde'] ?? []) as $pid => $brut) {
-            $brut = trim((string) $brut);
-            $date = ($_POST['le'][$pid] ?? '') !== '' ? $_POST['le'][$pid] : $dateCommune;
-            if ($brut === '') {
-                continue;
-            }
-            $montant = str_replace([' ', "\u{a0}", "\u{202f}", '€', ','], ['', '', '', '', '.'], $brut);
-            if (!is_numeric($montant)) {
-                $erreur = "Montant illisible : « " . $brut . " ».";
-                break;
-            }
-            if (!$date || !DateTime::createFromFormat('Y-m-d', $date)) {
-                $erreur = "Indiquez la date du solde « " . $brut . " ».";
-                break;
-            }
-            $lignes[(int) $pid] = [round((float) $montant, 2), $date];
-        }
-        if (!$erreur) {
-            foreach ($lignes as $pid => [$solde, $le]) {
-                pennylane_definir_solde_depart($pid, $solde, $le);
-            }
-            $n = pennylane_maj_tresorerie();
-            header('Location: /pages/admin_tresorerie.php?enregistre=' . count($lignes) . '&calcules=' . $n);
-            exit;
-        }
+        $parSociete[(int) $c['project_id']]['nom'] = $c['societe'];
+        $parSociete[(int) $c['project_id']]['comptes'][] = $c;
     }
 }
-
-pennylane_relier_automatiquement();
-pennylane_maj_tresorerie();
-$societes = pennylane_soldes_depart();
-$parQalimo = array_flip(qalimo_banques_projets());
-$qalimoNonRelies = qalimo_comptes_non_relies();
-$sansDepart = count(array_filter($societes, fn($s) => $s['solde_reference'] === null));
-$sansBanque = count(array_filter($societes, fn($s) => $s['solde_reference'] !== null && (int) $s['nb_liens'] === 0));
+$sansBanque = $pret ? get_db()->query(
+    "SELECT p.id, p.name FROM projects p JOIN project_types pt ON pt.id = p.project_type_id
+     WHERE p.status = 'active' AND pt.code <> 'restauration_exploitation'
+       AND NOT EXISTS (SELECT 1 FROM qalimo_comptes c WHERE c.project_id = p.id)
+     ORDER BY p.name"
+)->fetchAll() : [];
+$derniere = $pret ? get_db()->query(
+    "SELECT run_at, status, message FROM sync_runs WHERE source = 'qalimo_banques' ORDER BY id DESC LIMIT 1"
+)->fetch() : null;
 
 $pageTitle = 'Trésorerie';
 require __DIR__ . '/../inc/layout_header.php';
 ?>
 
-<?= page_header('Trésorerie des sociétés', "Saisissez une seule fois le solde bancaire réel de chaque société à une date donnée : chaque import Pennylane y ajoute ensuite les opérations bancaires.", '', 'Administration') ?>
+<?= page_header('Trésorerie des sociétés', "Soldes et opérations bancaires lus chaque matin dans Qalimo. La trésorerie d'une société est la somme de ses propres comptes.", '', 'Administration') ?>
 
-<?php if ($erreur): ?><div class="alert alert-danger"><?= h($erreur) ?></div><?php endif; ?>
-<?php if (isset($_GET['enregistre'])): ?>
-  <div class="alert alert-success">
-    <?= (int) $_GET['enregistre'] ?> solde(s) de départ enregistré(s),
-    <?= (int) ($_GET['calcules'] ?? 0) ?> trésorerie(s) recalculée(s) avec les opérations Pennylane.
+<?php if (!$pret): ?>
+  <div class="alert alert-warning">Passez d'abord la migration <code>028_qalimo_banques.sql</code> dans phpMyAdmin,
+    puis lancez <code>php cron/qalimo/qalimo_banques_sync.php</code>.</div>
+<?php else: ?>
+
+<?php if ($derniere): ?>
+  <div class="alert alert-<?= $derniere['status'] === 'ok' ? 'light' : 'danger' ?> small">
+    Dernière lecture Qalimo le <?= date('d/m/Y à H:i', strtotime($derniere['run_at'])) ?> : <?= h($derniere['message']) ?>
   </div>
 <?php endif; ?>
 
-<?php if ($parQalimo || $qalimoNonRelies): ?>
+<?php if ($nonRelies): ?>
 <div class="card mb-4">
-  <div class="card-header">Banques Qalimo</div>
-  <div class="card-body small">
-    <?= count($parQalimo) ?> société(s) ont leur trésorerie lue chaque matin dans Qalimo (somme de leurs propres comptes) :
-    rien à saisir pour elles, leur solde ci-dessous est remplacé à chaque synchro.
-    <?php if ($qalimoNonRelies): ?>
-      <div class="mt-2 fw-semibold"><?= count($qalimoNonRelies) ?> compte(s) Qalimo ne sont reliés à aucune société.</div>
-      Ajoutez-les dans <code>config/qalimo.local.php</code>, rubrique <code>'comptes'</code> (numéro du compte => id de la société, ou 0 pour l'ignorer).
-    <?php endif; ?>
+  <div class="card-header"><?= count($nonRelies) ?> compte(s) Qalimo reliés à aucune société</div>
+  <div class="card-body small border-bottom">
+    Ajoutez-les dans <code>config/qalimo.local.php</code>, rubrique <code>'comptes'</code> :
+    numéro du compte => id de la société, ou 0 pour l'ignorer.
   </div>
-  <?php if ($qalimoNonRelies): ?>
   <div class="card-body p-0">
     <table class="table table-sm mb-0">
-      <thead><tr><th>Banque</th><th>Libellé</th><th>Numéro</th><th class="text-end">Solde</th></tr></thead>
+      <thead><tr><th>Numéro</th><th>Banque</th><th>Libellé</th><th class="text-end">Solde</th></tr></thead>
       <tbody>
-        <?php foreach ($qalimoNonRelies as $c): ?>
+        <?php foreach ($nonRelies as $c): ?>
           <tr>
+            <td><code><?= (int) $c['id'] ?></code></td>
             <td><?= h($c['banque'] ?? '') ?></td>
             <td><?= h($c['libelle'] ?? '') ?><?= $c['iban_fin'] ? ' …' . h($c['iban_fin']) : '' ?></td>
-            <td><code><?= (int) $c['id'] ?></code></td>
             <td class="text-end"><?= $c['solde'] !== null ? eur((float) $c['solde'], 2) : '—' ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
   </div>
-  <?php endif; ?>
 </div>
 <?php endif; ?>
 
 <div class="card mb-4">
-  <div class="card-body small">
-    <strong>Rien à saisir pour les sociétés dont l'export Pennylane contient les soldes des comptes</strong>
-    (partie « Trésorerie Pennylane » du script) : leur solde est repris à chaque import. Pour les autres :
-    <br><strong>Où trouver le solde ?</strong> Le plus simple : l'écran Trésorerie de Pennylane (solde de chaque compte
-    à aujourd'hui), ou le relevé bancaire d'une fin de mois. Pour une société qui a plusieurs comptes, additionnez-les.
-    Le solde doit être celui du <em>soir</em> de la date indiquée : seules les opérations postérieures sont ajoutées.
+  <div class="card-header">Comptes par société</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr><th>Société</th><th>Compte</th><th>État</th><th class="text-end">Solde</th></tr></thead>
+      <tbody>
+        <?php foreach ($parSociete as $pid => $s): ?>
+          <?php foreach ($s['comptes'] as $i => $c): [$etat, $couleur] = qalimo_statut_compte($c['statut']); ?>
+            <tr>
+              <td><?= $i === 0 ? '<a class="fw-semibold" href="/pages/banque.php?id=' . $pid . '">' . h($s['nom']) . '</a>' : '' ?></td>
+              <td><?= h(trim(($c['banque'] ?? '') . ' — ' . ($c['libelle'] ?? ''), ' —')) ?><?= $c['iban_fin'] ? ' <span class="text-muted">…' . h($c['iban_fin']) . '</span>' : '' ?></td>
+              <td><span class="badge bg-<?= $couleur ?>-subtle text-<?= $couleur ?>-emphasis"><?= h($etat) ?></span></td>
+              <td class="text-end"><?= $c['solde'] !== null ? eur((float) $c['solde'], 2) : '—' ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endforeach; ?>
+        <?php if (!$parSociete): ?><tr><td colspan="4" class="text-center text-muted py-4">Aucun compte lu pour l'instant.</td></tr><?php endif; ?>
+      </tbody>
+    </table>
   </div>
 </div>
 
-<form method="post" class="card mb-4">
-  <?= csrf_champ() ?>
-  <div class="card-header">
-    <span>Soldes de départ</span>
-    <?php if ($sansDepart): ?><span class="badge bg-warning text-dark"><?= $sansDepart ?> sans solde</span><?php endif; ?>
+<?php if ($sansBanque): ?>
+<div class="card mb-4">
+  <div class="card-body small">
+    <strong><?= count($sansBanque) ?> société(s) sans compte bancaire dans Qalimo</strong> (leur trésorerie n'est plus mise à jour) :
+    <?= h(implode(', ', array_column($sansBanque, 'name'))) ?>.
   </div>
-  <div class="card-body border-bottom d-flex flex-wrap align-items-center gap-2">
-    <label for="date_commune" class="small text-muted">Date des soldes saisis (si la ligne n'en précise pas)</label>
-    <input type="date" id="date_commune" name="date_commune" class="form-control form-control-sm" style="max-width:170px"
-           value="<?= h(date('Y-m-d')) ?>">
-  </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table mb-0 align-middle">
-        <thead>
-          <tr>
-            <th>Société</th>
-            <th>Point de départ</th>
-            <th class="text-end">Trésorerie affichée</th>
-            <th>Nouveau solde (€)</th>
-            <th>au</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($societes as $s): $pid = (int) $s['id']; ?>
-            <tr>
-              <td>
-                <div class="fw-semibold"><?= h($s['name']) ?></div>
-                <?php if ((int) $s['nb_liens'] === 0): ?>
-                  <div class="small text-warning">Pas reliée à Pennylane : le solde ne bougera pas tout seul</div>
-                <?php elseif ($s['nb_comptes'] > 0): ?>
-                  <div class="small text-success">Soldes repris de Pennylane (<?= (int) $s['nb_comptes'] ?> compte<?= $s['nb_comptes'] > 1 ? 's' : '' ?>)</div>
-                <?php elseif ($s['solde_reference'] !== null): ?>
-                  <div class="small text-muted"><?= number_format($s['nb_operations'], 0, ',', ' ') ?> opération(s) Pennylane depuis</div>
-                <?php endif; ?>
-              </td>
-              <td class="small">
-                <?php if ($s['solde_reference'] !== null): ?>
-                  <?= eur((float) $s['solde_reference']) ?> au <?= date('d/m/Y', strtotime($s['solde_reference_le'])) ?>
-                <?php else: ?>
-                  <span class="text-muted">—</span>
-                <?php endif; ?>
-              </td>
-              <td class="text-end">
-                <?php if ($s['solde_bancaire'] !== null): ?>
-                  <span class="fw-semibold <?= (float) $s['solde_bancaire'] < 0 ? 'text-danger' : '' ?>"><?= eur((float) $s['solde_bancaire']) ?></span>
-                  <?php if ($s['solde_maj_le']): ?><div class="small text-muted">au <?= date('d/m/Y', strtotime($s['solde_maj_le'])) ?></div><?php endif; ?>
-                <?php else: ?>
-                  <span class="text-muted">—</span>
-                <?php endif; ?>
-              </td>
-              <td style="min-width:140px">
-                <input type="text" inputmode="decimal" name="solde[<?= $pid ?>]" class="form-control form-control-sm" placeholder="ex. 12 450,30">
-              </td>
-              <td style="min-width:150px">
-                <input type="date" name="le[<?= $pid ?>]" class="form-control form-control-sm">
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <div class="p-3 border-top d-flex justify-content-between align-items-center gap-3 flex-wrap">
-    <span class="text-muted small">Seules les lignes remplies sont modifiées.
-      <?php if ($sansBanque): ?><?= $sansBanque ?> société(s) avec un solde mais sans lien Pennylane.<?php endif; ?></span>
-    <button class="btn btn-dark btn-sm">Enregistrer et recalculer</button>
-  </div>
-</form>
+</div>
+<?php endif; ?>
+
+<?php endif; ?>
 
 <?php require __DIR__ . '/../inc/layout_footer.php'; ?>
