@@ -168,10 +168,12 @@ try {
         qb_liste(qb_get('/banks', $jeton)),
         fn($c) => isset($c['id']) && !in_array((int) ($c['id_profile_nom'] ?? 0), $ignores, true)
     ));
-    logMsg(count($comptes) . ' compte(s) bancaire(s) visible(s)');
-
-    // Rapprochement compte → société
+    // Rapprochement compte → société ; 0 dans « comptes » = compte à ne pas reprendre (ex. compte personnel)
     $forcees  = array_map('intval', $config['comptes'] ?? []);
+    $comptes = array_values(array_filter($comptes, fn($c) =>
+        ($forcees[(string) ($c['unique_id'] ?? '')] ?? $forcees[(string) $c['id']] ?? null) !== 0));
+    logMsg(count($comptes) . ' compte(s) bancaire(s) repris');
+
     // Le rapprochement ne fait que lire la base : il est aussi montré en mode --test
     $profils  = qalimo_profils_relies();
     $projets  = get_db()->query("SELECT id, name FROM projects WHERE status = 'active'")->fetchAll();
@@ -186,7 +188,7 @@ try {
             $iban !== '' ? ' …' . substr($iban, -4) : ''));
         logMsg(sprintf('         solde %s €, %s, profil %s → %s',
             number_format((float) qb_nombre($c['montant'] ?? 0), 2, ',', ' '), $etat, $c['id_profile_nom'] ?? '-',
-            $pid ? $nomsProjets[$pid] ?? "société $pid" : "NON RELIÉ : ajouter '" . ($c['unique_id'] ?? $c['id']) . "' => id de la société dans « comptes » de qalimo.local.php"));
+            $pid ? $nomsProjets[$pid] ?? "société $pid" : "NON RELIÉ : ajouter " . $c['id'] . " => id de la société (ou 0 pour l'ignorer) dans « comptes » de qalimo.local.php"));
     }
 
     // Opérations : toute la base la 1re fois (ou --tout), sinon les 60 derniers jours

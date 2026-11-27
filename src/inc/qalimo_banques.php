@@ -70,8 +70,33 @@ function qalimo_societe_du_compte(array $compte, array $forcees, array $profils,
     if ($profil !== null && !empty($profils[(int) $profil])) {
         return (int) $profils[(int) $profil];
     }
-    $nom = trim((string) ($compte['nom'] ?? ''));
-    return $nom !== '' ? pennylane_suggerer($nom, $projets) : null;
+    $nom = qalimo_nom_pour_rapprochement((string) ($compte['nom'] ?? ''));
+    return $nom !== null ? pennylane_suggerer($nom, $projets) : null;
+}
+
+/**
+ * Nom d'un compte réduit à celui de la société : la banque y ajoute le type de compte et
+ * un numéro (« COMPTE COURANT SCI PARTICULIERS - COUSIMMO (x8801) » → « SCI COUSIMMO »).
+ * null pour un compte de particulier (« M OU MME … ») ou sans nom utile : à relier à la main.
+ */
+function qalimo_nom_pour_rapprochement(string $nom): ?string
+{
+    $n = strtr(mb_strtoupper(trim($nom)), ['É' => 'E', 'È' => 'E', 'Ê' => 'E', 'À' => 'A', 'Ô' => 'O', 'Ç' => 'C']);
+    if ($n === '' || preg_match('/\b(M|MR|MME|MLLE|MONSIEUR|MADAME)\b/', $n)) {
+        return null;
+    }
+    $n = preg_replace('/\(X?\d+\)/', ' ', $n);
+    $n = preg_replace('/\bSTE\s+CIV(ILE)?\b|\bS\.?\s*C\.?\s*I\.?(?=\s|$)/', ' SCI ', $n);
+    $generiques = ['COMPTE', 'COURANT', 'PARTICULIERS', 'PARTICULIER', 'PROFESSIONNEL', 'PROFESSIONNELS', 'PRO',
+                   'ENTREPRISE', 'ENTREPRISES', 'EUR', 'EURO', 'EUROS', 'CHEQUES', 'CHEQUE', 'LIVRET', 'EPARGNE',
+                   'DEPOT', 'DEPOTS', 'TERME', 'CAV'];
+    $mots = array_filter(preg_split('/[^A-Z0-9]+/', $n, -1, PREG_SPLIT_NO_EMPTY), fn($m) => !in_array($m, $generiques, true));
+    $mots = array_values(array_unique($mots));
+    // Il doit rester autre chose qu'une forme juridique
+    if (!array_diff($mots, ['SCI', 'SAS', 'SASU', 'SARL', 'EURL', 'SA', 'SNC'])) {
+        return null;
+    }
+    return implode(' ', $mots);
 }
 
 /** Correspondances profil Qalimo → société ADHUB connues (synchro des biens), [] si absente */

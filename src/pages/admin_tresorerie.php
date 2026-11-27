@@ -87,19 +87,19 @@ require __DIR__ . '/../inc/layout_header.php';
     rien à saisir pour elles, leur solde ci-dessous est remplacé à chaque synchro.
     <?php if ($qalimoNonRelies): ?>
       <div class="mt-2 fw-semibold"><?= count($qalimoNonRelies) ?> compte(s) Qalimo ne sont reliés à aucune société.</div>
-      Ajoutez-les dans <code>config/qalimo.local.php</code>, rubrique <code>'comptes'</code> (identifiant => id de la société).
+      Ajoutez-les dans <code>config/qalimo.local.php</code>, rubrique <code>'comptes'</code> (numéro du compte => id de la société, ou 0 pour l'ignorer).
     <?php endif; ?>
   </div>
   <?php if ($qalimoNonRelies): ?>
   <div class="card-body p-0">
     <table class="table table-sm mb-0">
-      <thead><tr><th>Banque</th><th>Libellé</th><th>Identifiant</th><th class="text-end">Solde</th></tr></thead>
+      <thead><tr><th>Banque</th><th>Libellé</th><th>Numéro</th><th class="text-end">Solde</th></tr></thead>
       <tbody>
         <?php foreach ($qalimoNonRelies as $c): ?>
           <tr>
             <td><?= h($c['banque'] ?? '') ?></td>
             <td><?= h($c['libelle'] ?? '') ?><?= $c['iban_fin'] ? ' …' . h($c['iban_fin']) : '' ?></td>
-            <td><code><?= h($c['unique_id']) ?></code></td>
+            <td><code><?= (int) $c['id'] ?></code></td>
             <td class="text-end"><?= $c['solde'] !== null ? eur((float) $c['solde'], 2) : '—' ?></td>
           </tr>
         <?php endforeach; ?>

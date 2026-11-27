@@ -33,6 +33,6 @@ return [
     'societes' => [/* 9699 => 18 */],
 
     // Banques : comptes à relier à la main quand le profil ou le nom ne suffit pas
-    // [identifiant du compte affiché par qalimo_banques_sync.php => id de la société ADHUB]
-    'comptes' => [/* 'abc123' => 27 */],
+    // [numéro du compte affiché par qalimo_banques_sync.php => id de la société ADHUB, ou 0 pour l'ignorer]
+    'comptes' => [/* 3824 => 27, 3029 => 0 */],
 ];
