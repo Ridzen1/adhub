@@ -709,8 +709,14 @@ function pennylane_maj_tresorerie(): int
          WHERE p.solde_reference IS NOT NULL AND p.solde_reference_le IS NOT NULL"
     )->fetchAll();
     $maj = $pdo->prepare("UPDATE projects SET solde_bancaire = :s, solde_maj_le = :d WHERE id = :p");
+    // Les sociétés dont les banques sont lues chaque jour dans Qalimo gardent ce solde-là
+    require_once __DIR__ . '/qalimo_banques.php';
+    $parQalimo = array_flip(qalimo_banques_projets());
     $n = 0;
     foreach ($projets as $projet) {
+        if (isset($parQalimo[(int) $projet['id']])) {
+            continue;
+        }
         [$in, $params] = pl_in(pennylane_noms_projet((int) $projet['id']));
         $params['depuis'] = $projet['solde_reference_le'];
         $r = pl_requete(

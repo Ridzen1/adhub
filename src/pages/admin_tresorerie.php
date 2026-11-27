@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../inc/access.php';
 require_once __DIR__ . '/../inc/double_auth.php';
 require_once __DIR__ . '/../inc/pennylane.php';
+require_once __DIR__ . '/../inc/qalimo_banques.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_direction();
 
@@ -59,6 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 pennylane_relier_automatiquement();
 pennylane_maj_tresorerie();
 $societes = pennylane_soldes_depart();
+$parQalimo = array_flip(qalimo_banques_projets());
+$qalimoNonRelies = qalimo_comptes_non_relies();
 $sansDepart = count(array_filter($societes, fn($s) => $s['solde_reference'] === null));
 $sansBanque = count(array_filter($societes, fn($s) => $s['solde_reference'] !== null && (int) $s['nb_liens'] === 0));
 
@@ -74,6 +77,37 @@ require __DIR__ . '/../inc/layout_header.php';
     <?= (int) $_GET['enregistre'] ?> solde(s) de départ enregistré(s),
     <?= (int) ($_GET['calcules'] ?? 0) ?> trésorerie(s) recalculée(s) avec les opérations Pennylane.
   </div>
+<?php endif; ?>
+
+<?php if ($parQalimo || $qalimoNonRelies): ?>
+<div class="card mb-4">
+  <div class="card-header">Banques Qalimo</div>
+  <div class="card-body small">
+    <?= count($parQalimo) ?> société(s) ont leur trésorerie lue chaque matin dans Qalimo (somme de leurs propres comptes) :
+    rien à saisir pour elles, leur solde ci-dessous est remplacé à chaque synchro.
+    <?php if ($qalimoNonRelies): ?>
+      <div class="mt-2 fw-semibold"><?= count($qalimoNonRelies) ?> compte(s) Qalimo ne sont reliés à aucune société.</div>
+      Ajoutez-les dans <code>config/qalimo.local.php</code>, rubrique <code>'comptes'</code> (identifiant => id de la société).
+    <?php endif; ?>
+  </div>
+  <?php if ($qalimoNonRelies): ?>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Banque</th><th>Libellé</th><th>Identifiant</th><th class="text-end">Solde</th></tr></thead>
+      <tbody>
+        <?php foreach ($qalimoNonRelies as $c): ?>
+          <tr>
+            <td><?= h($c['banque'] ?? '') ?></td>
+            <td><?= h($c['libelle'] ?? '') ?><?= $c['iban_fin'] ? ' …' . h($c['iban_fin']) : '' ?></td>
+            <td><code><?= h($c['unique_id']) ?></code></td>
+            <td class="text-end"><?= $c['solde'] !== null ? eur((float) $c['solde'], 2) : '—' ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+  <?php endif; ?>
+</div>
 <?php endif; ?>
 
 <div class="card mb-4">

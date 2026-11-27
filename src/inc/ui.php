@@ -238,6 +238,18 @@ function societe_a_compta_pennylane(int $projectId): bool
     }
 }
 
+/** Vrai si la société a au moins un compte bancaire Qalimo relié (migration 028) */
+function societe_a_banque_qalimo(int $projectId): bool
+{
+    try {
+        $st = get_db()->prepare("SELECT 1 FROM qalimo_comptes WHERE project_id = :id LIMIT 1");
+        $st->execute(['id' => $projectId]);
+        return (bool) $st->fetchColumn();
+    } catch (PDOException $e) {
+        return false; // migration 028 pas encore passée
+    }
+}
+
 /** Vrai si la société a des biens ou des prêts importés (migration 027) */
 function societe_a_biens_prets(int $projectId): bool
 {
@@ -274,6 +286,10 @@ function company_header(array $project, string $actif, string $actions = '', str
         $onglets['objectifs'] = ['Objectifs', '/pages/objectifs.php', 'dashboard'];
     }
     $onglets['charges']   = ['Charges fixes', '/pages/charges.php', 'dashboard'];
+    // Banques Qalimo : pas de trésorerie pour un restaurant, sauf pour la direction
+    if ((!$resto || is_direction()) && societe_a_banque_qalimo($id)) {
+        $onglets['banque'] = ['Banque', '/pages/banque.php', 'dashboard'];
+    }
     if (societe_a_compta_pennylane($id)) {
         $onglets['compta'] = ['Comptabilité', '/pages/comptabilite.php', 'dashboard'];
     }

@@ -11,14 +11,28 @@
  *
  * Chaque profil bailleur Qalimo est relié automatiquement à la société ADHUB du même nom.
  * Le numéro du profil s'affiche au lancement de cron/qalimo/qalimo_sync.php.
+ *
+ * BANQUES (cron/qalimo/qalimo_banques_sync.php) : l'API ne donne pas les comptes bancaires,
+ * le script se connecte donc comme le site avec l'e-mail et le mot de passe du compte Qalimo.
+ * Si ce compte a la double authentification (appli), coller dans 'totp_secret' la clé
+ * secrète affichée à l'activation (texte sous le QR code) ; sinon laisser vide.
  */
 
 return [
     'token' => 'qmcp_A_REMPLACER',
+
+    // Connexion pour les banques (jamais dans un message, seulement dans ce fichier)
+    'email'        => 'adresse@exemple.fr',
+    'mot_de_passe' => 'A_REMPLACER',
+    'totp_secret'  => '',
 
     // Profils Qalimo à ne pas reprendre dans ADHUB (ex. 9755 => Arnaud DUVIVIER particulier)
     'ignorer' => [9755],
 
     // Correspondances forcées quand le nom ne suffit pas : [numéro du profil Qalimo => id de la société ADHUB]
     'societes' => [/* 9699 => 18 */],
+
+    // Banques : comptes à relier à la main quand le profil ou le nom ne suffit pas
+    // [identifiant du compte affiché par qalimo_banques_sync.php => id de la société ADHUB]
+    'comptes' => [/* 'abc123' => 27 */],
 ];

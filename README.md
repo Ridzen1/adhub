@@ -389,6 +389,39 @@ Chaque passage est tracé dans `sync_runs` (source `qalimo`). Une synchro interr
 pas aux données de la veille (tout est remplacé en une transaction). Faux serveur pour tester :
 `php -S 127.0.0.1:8097 mock/qalimo/router.php` (jeton `qmcp_test`, `'api' => 'http://127.0.0.1:8097/api/v1'`).
 
+## Banques : comptes et opérations lus dans Qalimo
+
+Les banques des sociétés sont connectées dans Qalimo (agrégation Linxo). L'API publique de
+Qalimo ne les expose pas : `cron/qalimo/qalimo_banques_sync.php` se connecte donc comme le site
+(e-mail + mot de passe du compte Qalimo) et lit, sans rien modifier, les mêmes données que la page
+« Banques » : comptes (banque, solde, état de la connexion) et opérations (entrées +, sorties −).
+Migration : `database/028_qalimo_banques.sql`.
+
+- Chaque compte est relié à une société : correspondance forcée (`'comptes'` dans la config), sinon
+  le profil bailleur déjà relié par la synchro des biens, sinon le nom du compte.
+- Trésorerie d'une société (`solde_bancaire`) = somme de **ses** comptes, mise à jour à chaque
+  passage ; l'import Pennylane ne l'écrase plus. Jamais de cumul entre sociétés.
+- Onglet **Banque** de la société : solde par compte, entrées/sorties du mois et sur 12 mois,
+  principales sorties, dernières opérations. Restaurants : pas de trésorerie, onglet réservé à la direction.
+- Comptes non reliés : listés dans Administration → Trésorerie.
+
+### Installation
+
+1. Passer `database/028_qalimo_banques.sql`.
+2. Dans `config/qalimo.local.php`, ajouter `'email'`, `'mot_de_passe'` (et `'totp_secret'` si le
+   compte Qalimo a la double authentification par appli) : voir `qalimo.local.php.exemple`.
+3. Vérifier : `php cron/qalimo/qalimo_banques_sync.php --test` (connexion + comptes, rien n'est écrit).
+4. Premier chargement (tout l'historique) : `php cron/qalimo/qalimo_banques_sync.php`. Les passages
+   suivants relisent les 60 derniers jours ; `--tout` recharge tout.
+5. Cron, après celui des biens :
+
+```
+45 6 * * * /usr/local/bin/php ~/adhub.fr/cron/qalimo/qalimo_banques_sync.php >/dev/null 2>&1
+```
+
+Test sans le vrai compte : le mock `mock/qalimo/router.php` répond aussi à `/token`, `/banks` et
+`/transactions` (`'base' => 'http://127.0.0.1:8097'`, e-mail `test@adhub.local`, mot de passe `test`).
+
 ## Objectifs de CA des restaurants
 
 Migration : `database/016_objectifs.sql` (table `objectifs_ca`). Sans elle, les pages s'affichent sans objectifs.
