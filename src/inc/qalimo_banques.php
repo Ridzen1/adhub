@@ -294,10 +294,11 @@ function qalimo_comptes_non_relies(): array
 /** Libellé lisible de l'état de connexion Qalimo ↔ banque */
 function qalimo_statut_compte(?string $statut): array
 {
+    // Qalimo code l'état en nombre : 1 = active, 2 = session expirée, 3 = non synchronisé
     return match (strtolower((string) $statut)) {
-        'active', ''    => ['Connectée', 'success'],
-        'inactive'      => ['Session expirée', 'warning'],
-        'unconsented'   => ['Non synchronisé', 'warning'],
-        default         => [ucfirst((string) $statut), 'secondary'],
+        '1', 'active', ''    => ['Connectée', 'success'],
+        '2', 'inactive'      => ['Session expirée', 'warning'],
+        '3', 'unconsented'   => ['Non synchronisé', 'warning'],
+        default              => ['État ' . $statut, 'secondary'],
     };
 }

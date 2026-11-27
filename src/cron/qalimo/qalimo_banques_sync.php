@@ -13,7 +13,7 @@
  * Usage :
  *   php cron/qalimo/qalimo_banques_sync.php              60 derniers jours (rattrapage compris)
  *   php cron/qalimo/qalimo_banques_sync.php --tout       tout l'historique (1re fois)
- *   php cron/qalimo/qalimo_banques_sync.php --test       connexion + liste des comptes, sans rien écrire
+ *   php cron/qalimo/qalimo_banques_sync.php --test       comptes, société proposée et opérations lues, sans rien écrire
  *
  * Cron (tous les jours à 6h45, après la synchro des biens de 6h30) :
  *   45 6 * * * php ~/adhub.fr/cron/qalimo/qalimo_banques_sync.php >> ~/logs/qalimo_banques.log 2>&1
@@ -172,17 +172,21 @@ try {
 
     // Rapprochement compte → société
     $forcees  = array_map('intval', $config['comptes'] ?? []);
-    $profils  = $test ? [] : qalimo_profils_relies();
-    $projets  = $test ? [] : get_db()->query("SELECT id, name FROM projects WHERE status = 'active'")->fetchAll();
+    // Le rapprochement ne fait que lire la base : il est aussi montré en mode --test
+    $profils  = qalimo_profils_relies();
+    $projets  = get_db()->query("SELECT id, name FROM projects WHERE status = 'active'")->fetchAll();
+    $nomsProjets = array_column($projets, 'name', 'id');
     $liens = [];
     foreach ($comptes as $c) {
-        $pid = $test ? null : qalimo_societe_du_compte($c, $forcees, $profils, $projets);
+        $pid = qalimo_societe_du_compte($c, $forcees, $profils, $projets);
         $liens[(int) $c['id']] = $pid;
-        $nom = trim(($c['bank_metadata']['name'] ?? '') . ' ' . ($c['nom'] ?? '')) ?: 'Compte';
-        logMsg(sprintf('  compte %-6d %-40s profil %-6s solde %12s  %-11s → %s',
-            $c['id'], mb_substr($nom, 0, 40), $c['id_profile_nom'] ?? '-',
-            number_format((float) qb_nombre($c['montant'] ?? 0), 2, ',', ' '), $c['status'] ?? '?',
-            $test ? '(test)' : ($pid ? 'société ADHUB ' . $pid : "NON RELIÉ (ajouter '" . ($c['unique_id'] ?? $c['id']) . "' => id dans « comptes » de qalimo.local.php)")));
+        $iban = preg_replace('/\s+/', '', (string) ($c['iban'] ?? ''));
+        [$etat] = qalimo_statut_compte(isset($c['status']) ? (string) $c['status'] : null);
+        logMsg(sprintf('  compte %-6d %s — %s%s', $c['id'], $c['bank_metadata']['name'] ?? 'Banque ?', trim((string) ($c['nom'] ?? '')) ?: 'sans nom',
+            $iban !== '' ? ' …' . substr($iban, -4) : ''));
+        logMsg(sprintf('         solde %s €, %s, profil %s → %s',
+            number_format((float) qb_nombre($c['montant'] ?? 0), 2, ',', ' '), $etat, $c['id_profile_nom'] ?? '-',
+            $pid ? $nomsProjets[$pid] ?? "société $pid" : "NON RELIÉ : ajouter '" . ($c['unique_id'] ?? $c['id']) . "' => id de la société dans « comptes » de qalimo.local.php"));
     }
 
     // Opérations : toute la base la 1re fois (ou --tout), sinon les 60 derniers jours
@@ -191,10 +195,11 @@ try {
     logMsg('Lecture des opérations ' . ($du ? "depuis le $du" : "(tout l'historique)"));
     $operations = [];
     $vus = [];
-    for ($page = 1; $page <= ($test ? 1 : QB_PAGES_MAX); $page++) {
+    for ($page = 1; $page <= QB_PAGES_MAX; $page++) {
         $q = ['page' => $page, 'per_page' => QB_PAR_PAGE];
         if ($du) $q['date_min'] = $du;
         $lot = qb_liste(qb_get('/transactions', $jeton, $q));
+        if ($test) logMsg("  page $page : " . count($lot) . ' opération(s)');
         $nouvelles = 0;
         foreach ($lot as $o) {
             if (!isset($o['id']) || isset($vus[$o['id']])) continue;
@@ -207,12 +212,23 @@ try {
     logMsg(count($operations) . ' opération(s) lue(s)');
 
     if ($test) {
-        if ($operations) {
-            $o = $operations[0];
-            logMsg('Exemple d\'opération : champs ' . implode(', ', array_keys($o)));
-            logMsg(sprintf('  %s  %s  %s €', $o['date_transac'] ?? '?', mb_substr((string) ($o['description'] ?? ''), 0, 50), $o['montant'] ?? '?'));
+        // Entrées / sorties lues, compte par compte (une seule société par compte)
+        $parCompte = [];
+        foreach ($operations as $o) {
+            $m = (float) qb_nombre($o['montant'] ?? 0);
+            $k = (string) ($o['unique_account_id'] ?? '?');
+            $parCompte[$k] ??= ['e' => 0.0, 's' => 0.0, 'n' => 0, 'min' => null];
+            $parCompte[$k][$m >= 0 ? 'e' : 's'] += abs($m);
+            $parCompte[$k]['n']++;
+            $d = substr((string) ($o['date_transac'] ?? ''), 0, 10);
+            if ($d !== '' && ($parCompte[$k]['min'] === null || $d < $parCompte[$k]['min'])) $parCompte[$k]['min'] = $d;
         }
-        if ($comptes) logMsg('Champs d\'un compte : ' . implode(', ', array_keys($comptes[0])));
+        logMsg('Entrées et sorties lues ' . ($du ? "depuis le $du" : 'sur tout l\'historique') . ' :');
+        foreach ($comptes as $c) {
+            $r = $parCompte[(string) ($c['unique_id'] ?? $c['id'])] ?? ['e' => 0, 's' => 0, 'n' => 0, 'min' => null];
+            logMsg(sprintf('  compte %-6d %4d opération(s)  entrées %12s €  sorties %12s €%s', $c['id'], $r['n'],
+                number_format($r['e'], 2, ',', ' '), number_format($r['s'], 2, ',', ' '), $r['min'] ? '  (dès le ' . $r['min'] . ')' : ''));
+        }
         logMsg('Test terminé : rien n\'a été écrit');
         exit(0);
     }
