@@ -98,6 +98,10 @@ HTML,
         'html' => <<<HTML
 <p>L'onglet <strong>Analyse des ventes</strong> détaille ce qui s'est vendu. Choisissez la période en
 haut : hier, 7 derniers jours, mois en cours, mois dernier, 30 derniers jours, ou des dates précises.</p>
+<p>Le tableau <em>Ticket moyen midi et soir</em> donne, jour par jour, le ticket moyen du déjeuner et
+celui du dîner : CA TTC du service divisé par les couverts (ou par le nombre d'additions quand la caisse ne
+donne pas les couverts par addition). Une addition commencée avant 16 h compte pour le déjeuner. Le ticket
+moyen midi / soir d'hier est aussi rappelé sur le tableau de bord.</p>
 <ul>
   <li>CA par jour et par heure, midi / soir, moyenne par jour de la semaine.</li>
   <li>Répartition par catégorie, <strong>meilleures ventes</strong> et <strong>produits les moins vendus</strong> :

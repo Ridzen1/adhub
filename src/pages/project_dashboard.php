@@ -7,6 +7,7 @@ require_once __DIR__ . '/../inc/periodes.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
 require_once __DIR__ . '/../inc/objectifs.php';
 require_once __DIR__ . '/../inc/qalimo.php';
+require_once __DIR__ . '/../inc/caisses.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_login();
 
@@ -87,6 +88,13 @@ if ($estRestaurant) {
     $mixTotal = (float) $mix['solide'] + (float) $mix['liquide'];
     $partSolide = $mixTotal > 0 ? (float) $mix['solide'] / $mixTotal * 100 : null;
 
+    // Ticket moyen d'hier, déjeuner et dîner séparés (caisses avec l'heure des additions)
+    $jourHier = $compHier['bornes']['debut'];
+    $tm = analyse_ticket_moyen_services($id, $jourHier, $jourHier);
+    $tmHier = isset($tm['jours'][$jourHier])
+        ? ['services' => $tm['jours'][$jourHier], 'par_couvert' => $tm['couverts_connus']]
+        : null;
+
     // Projection du mois : CA moyen par jour calendaire écoulé × nombre de jours du mois.
     // Les jours de fermeture sont ainsi lissés ; à partir de 3 jours, sinon c'est du bruit.
     // Le mois en cours s'arrête à hier (voir bornes_periode) : jours écoulés = jours de la période.
@@ -164,6 +172,16 @@ require __DIR__ . '/../inc/layout_header.php';
             'icon' => 'users',
             'foot' => 'Panier moyen <strong class="text-body">' . eur($compMois['actuel']['ticket_moyen'], 2) . '</strong>'
                     . ($compMois['n1_disponible'] ? ' ' . delta($compMois['var_ticket']) : ''),
+          ]) ?>
+    <?php endif; ?>
+    <?php if ($tmHier):
+      $tmVal = fn(array $sv) => $sv['additions'] === 0 ? '—'
+          : eur($tmHier['par_couvert'] ? $sv['par_couvert'] : $sv['par_addition'], 2); ?>
+      <?= kpi("Ticket moyen d'hier · midi / soir", $tmVal($tmHier['services']['midi'])
+                                    . ' <small>/ ' . $tmVal($tmHier['services']['soir']) . '</small>', [
+            'icon' => 'wallet',
+            'foot' => '<span>' . ($tmHier['par_couvert'] ? 'Par couvert' : 'Par addition') . '</span>'
+                    . '<a href="/pages/analyse_caisse.php?id=' . $id . '#ticket-midi-soir">Jour par jour →</a>',
           ]) ?>
     <?php endif; ?>
     <?php if ($partSolide !== null): ?>
