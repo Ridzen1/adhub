@@ -128,9 +128,9 @@ function afficher_cartes_famille(string $famille, array $societes): void
         </div>
         <div class="card-body">
           <div class="row g-3 mb-3">
-            <div class="col-6">
+            <div class="col-12">
               <div class="kpi-label">Trésorerie</div>
-              <div class="resto-value num <?= $p['solde_bancaire'] !== null && (float) $p['solde_bancaire'] < 0 ? 'text-danger' : '' ?>">
+              <div class="resto-value num <?= $p['solde_bancaire'] !== null && (float) $p['solde_bancaire'] < 0 ? 'text-danger' : '' ?>" style="font-size:2rem">
                 <?= $p['solde_bancaire'] !== null ? eur((float) $p['solde_bancaire']) : '<span class="text-muted fw-normal fs-6">non renseignée</span>' ?>
               </div>
               <div class="kpi-foot mt-1">

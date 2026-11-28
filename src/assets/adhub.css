@@ -858,3 +858,24 @@ a.kpi:hover { border-color: var(--ad-border-strong); box-shadow: var(--ad-shadow
   /* À l'impression on repasse toujours en clair */
   [data-bs-theme=dark] body { background: #fff; color: #111827; }
 }
+
+/* Trésorerie en grand en haut du tableau de bord d'une société */
+.treso-banner { display: flex; flex-wrap: wrap; gap: 24px 40px; align-items: center; justify-content: space-between;
+  background: var(--ad-navy); color: #fff; border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; text-decoration: none; }
+.treso-banner:hover { color: #fff; filter: brightness(1.06); }
+.treso-label { display: flex; align-items: center; gap: 8px; color: var(--ad-gold); font-weight: 600; font-size: .95rem; }
+.treso-value { font-size: 3rem; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; margin: 6px 0 8px; white-space: nowrap; }
+.treso-banner.negatif .treso-value { color: #FCA5A5; }
+.treso-foot { display: flex; flex-wrap: wrap; gap: 6px 14px; color: rgba(255,255,255,.65); font-size: .85rem; }
+.treso-warn { color: #FCD34D; font-weight: 600; }
+.treso-side { display: grid; grid-template-columns: repeat(3, auto); gap: 6px 32px; }
+.treso-side span { display: block; color: rgba(255,255,255,.6); font-size: .8rem; }
+.treso-side strong { font-size: 1.25rem; font-weight: 700; }
+.treso-side strong.pos { color: #6EE7B7; }
+.treso-side strong.neg { color: #FCA5A5; }
+.treso-link { grid-column: 1 / -1; color: var(--ad-gold); font-size: .85rem; font-weight: 600; margin-top: 4px; }
+@media (max-width: 640px) {
+  .treso-banner { padding: 18px; }
+  .treso-value { font-size: 2.2rem; }
+  .treso-side { grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+}
