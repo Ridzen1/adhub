@@ -128,7 +128,6 @@ $assetV = @filemtime(__DIR__ . '/../assets/adhub.css') ?: 1;
             <a class="dropdown-item <?= $navPage === 'projects' ? 'active' : '' ?>" href="/pages/projects.php">Gérer les sociétés</a>
             <a class="dropdown-item <?= $navPage === 'admin_users' ? 'active' : '' ?>" href="/pages/admin_users.php">Utilisateurs et accès</a>
             <a class="dropdown-item <?= $navPage === 'admin_caisses' ? 'active' : '' ?>" href="/pages/admin_caisses.php">Caisses</a>
-            <a class="dropdown-item <?= $navPage === 'admin_pennylane' ? 'active' : '' ?>" href="/pages/admin_pennylane.php">Import Pennylane</a>
             <a class="dropdown-item <?= $navPage === 'admin_tresorerie' ? 'active' : '' ?>" href="/pages/admin_tresorerie.php">Trésorerie</a>
             <a class="dropdown-item <?= $navPage === 'admin_biens' ? 'active' : '' ?>" href="/pages/admin_biens.php">Biens et prêts</a>
             <a class="dropdown-item d-flex align-items-center justify-content-between gap-3 <?= $navPage === 'admin_retours' ? 'active' : '' ?>" href="/pages/admin_retours.php">

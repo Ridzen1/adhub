@@ -18,7 +18,7 @@ $sections = [
         'html' => <<<HTML
 <p>ADHUB réunit au même endroit les chiffres et les documents des sociétés du groupe : restaurants,
 immobilier locatif (SCI), marchands de biens et holding. Ce n'est pas un logiciel de plus à remplir :
-les ventes arrivent toutes seules depuis les caisses, la comptabilité depuis Pennylane, et les
+les ventes arrivent toutes seules depuis les caisses, les banques depuis Qalimo, et les
 documents restent dans OneDrive.</p>
 <p>Chacun ne voit que les sociétés qui lui ont été attribuées par la direction.</p>
 HTML,
@@ -52,7 +52,7 @@ HTML,
   <li><strong>Sociétés</strong> : la liste de vos sociétés, classées par pôle, avec une recherche.
       Tapez quelques lettres du nom pour la retrouver.</li>
   <li>Une fois dans une société, les <strong>onglets</strong> sous son nom donnent accès à ses pages :
-      Tableau de bord, Analyse des ventes, Évolution, Objectifs, Charges fixes, Comptabilité, Documents, Fiche société.
+      Tableau de bord, Analyse des ventes, Évolution, Objectifs, Charges fixes, Banque, Documents, Fiche société.
       Seuls les onglets auxquels vous avez droit apparaissent.</li>
   <li>Sur téléphone, le menu s'ouvre avec le bouton ☰ en haut à droite.</li>
 </ul>
@@ -67,7 +67,7 @@ HTML,
   <li><strong>Trésorerie consolidée</strong> : la somme des soldes bancaires, avec le nombre de comptes à
       découvert. Un solde qui date de plus de 30 jours est signalé comme <em>ancien</em>.</li>
   <li><strong>Taux d'occupation</strong> des logements et lots, avec le nombre de vacants.</li>
-  <li><strong>Résultat net</strong> de l'année et <strong>fournisseurs à payer</strong> (d'après Pennylane).</li>
+  <li><strong>Résultat net</strong> de l'année.</li>
 </ul>
 <p>Juste en dessous, un cadre rouge liste les <strong>échéances de contrats à traiter</strong> dans
 toutes les sociétés.</p>
@@ -191,8 +191,8 @@ HTML,
   <thead><tr><th>Donnée</th><th>Source</th><th>Mise à jour</th></tr></thead>
   <tbody>
     <tr><td>Ventes des restaurants</td><td>Caisses L'Addition et Popina</td><td>Automatique, chaque nuit vers 5 h 30 (la journée de la veille)</td></tr>
-    <tr><td>Factures fournisseurs, banque, trésorerie</td><td>Export Pennylane déposé par la direction</td><td>À chaque nouvel export</td></tr>
-    <tr><td>Revenus et charges du mois</td><td>Calculés à partir des caisses et de Pennylane</td><td>Après chaque synchro ou import</td></tr>
+    <tr><td>Comptes bancaires, opérations, trésorerie</td><td>Banques connectées dans Qalimo</td><td>Automatique, chaque matin vers 6 h 45</td></tr>
+    <tr><td>Revenus et charges du mois</td><td>Restaurants : caisses. Autres sociétés : opérations bancaires (chaque sortie est une charge)</td><td>Après chaque synchro</td></tr>
     <tr><td>Biens, baux, loyers et impayés des SCI</td><td>Qalimo (gestion locative)</td><td>Automatique, chaque nuit vers 6 h 30</td></tr>
     <tr><td>Valeur, surface, emprunt</td><td>Fiche société</td><td>À la main, quand ça change</td></tr>
     <tr><td>Documents</td><td>OneDrive</td><td>Directement dans OneDrive</td></tr>
@@ -221,13 +221,14 @@ d'un contrat qui se renouvelle tout seul.</p>
 HTML,
     ],
     [
-        'id' => 'comptabilite', 'icon' => 'bank', 'pour' => 'tous',
-        'titre' => "Comptabilité",
+        'id' => 'banque', 'icon' => 'bank', 'pour' => 'tous',
+        'titre' => "Banque",
         'html' => <<<HTML
-<p>L'onglet <strong>Comptabilité</strong> apparaît pour les sociétés reliées à Pennylane. Il montre les
-fournisseurs à payer (dont les factures en retard), les achats du mois, les encaissements et
-décaissements, les opérations bancaires à justifier et les principaux fournisseurs.</p>
-<p class="guide-note">Ces chiffres datent du dernier export Pennylane : la date est indiquée sur la page.</p>
+<p>L'onglet <strong>Banque</strong> d'une société montre ses comptes et leur solde, les entrées et sorties
+du mois et des 12 derniers mois, les principales sorties et les dernières opérations. Les chiffres sont
+lus chaque matin dans Qalimo, sans rien à importer.</p>
+<p class="guide-note">Un compte marqué « Session expirée » doit être reconnecté dans Qalimo, page Banques.
+Pour les restaurants, l'onglet est réservé à la direction.</p>
 HTML,
     ],
     [
@@ -290,38 +291,13 @@ HTML,
 HTML,
     ],
     [
-        'id' => 'admin-pennylane', 'icon' => 'receipt', 'pour' => 'direction',
-        'titre' => "Administration : import Pennylane",
-        'html' => <<<HTML
-<p>Menu <a href="/pages/admin_pennylane.php">Administration → Import Pennylane</a>.</p>
-<ol class="guide-steps">
-  <li>Exportez depuis Pennylane le fichier Excel avec les feuilles « Factures fournisseurs »,
-      « Factures clients » et « Transactions bancaires ».</li>
-  <li>Déposez-le dans <em>Déposer un export</em>. Réimporter un export plus récent met à jour sans créer de doublon.</li>
-  <li>Vérifiez la correspondance entre les sociétés Pennylane et les sociétés ADHUB, et choisissez
-      celles qui sont restées sans correspondance.</li>
-</ol>
-<p class="guide-note">Pour les restaurants, l'onglet Comptabilité montre les principaux fournisseurs, sans les
-factures (ni à payer, ni en retard). Les achats n'entrent pas dans leurs charges mensuelles, qui se
-saisissent à la main dans le tableau de bord si besoin.</p>
-<p class="guide-note">Le tableau de bord, la trésorerie et l'onglet Comptabilité se mettent à jour juste après l'import.
-Un export par mois, vers le 10, suffit à garder des chiffres fiables.</p>
-HTML,
-    ],
-    [
         'id' => 'admin-tresorerie', 'icon' => 'bank', 'pour' => 'direction',
         'titre' => "Administration : trésorerie",
         'html' => <<<HTML
 <p>Menu <a href="/pages/admin_tresorerie.php">Administration → Trésorerie</a>.</p>
-<ol class="guide-steps">
-  <li>Si l'export Pennylane contient la partie « Trésorerie Pennylane » (soldes des comptes), il n'y a rien
-      à saisir : le solde de chaque société est repris à chaque import.</li>
-  <li>Pour une société absente de cette partie : saisissez une fois son solde bancaire réel à une date
-      (relevé de fin de mois ; plusieurs comptes s'additionnent).</li>
-  <li>Ensuite, chaque import Pennylane ajoute les opérations bancaires postérieures : la trésorerie de la
-      vue d'ensemble et du tableau de bord se met à jour sans autre saisie.</li>
-  <li>Si un écart apparaît un jour avec la banque, ressaisissez simplement le solde du jour.</li>
-</ol>
+<p>La trésorerie de chaque société est la somme de ses comptes bancaires lus dans Qalimo, mise à jour
+chaque matin. Cette page liste les comptes de chaque société et leur état, les comptes qu'aucune société
+ne reprend (à relier dans la configuration) et les sociétés sans banque dans Qalimo.</p>
 HTML,
     ],
     [

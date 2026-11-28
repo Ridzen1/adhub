@@ -290,9 +290,7 @@ function company_header(array $project, string $actif, string $actions = '', str
     if ((!$resto || is_direction()) && societe_a_banque_qalimo($id)) {
         $onglets['banque'] = ['Banque', '/pages/banque.php', 'dashboard'];
     }
-    if (societe_a_compta_pennylane($id)) {
-        $onglets['compta'] = ['Comptabilité', '/pages/comptabilite.php', 'dashboard'];
-    }
+    // Onglet Comptabilité (export Pennylane manuel) retiré le 28/11/2026 : la banque vient de Qalimo
     if (is_direction() && societe_a_biens_prets($id)) {
         $onglets['biens'] = ['Biens et prêts', '/pages/biens.php', 'dashboard'];
     }

@@ -16,8 +16,6 @@ if (!voit_patrimoine()) {
 }
 
 // Un export Pennylane passé par phpMyAdmin n'a pas déclenché le calcul : on le refait ici
-pennylane_relier_automatiquement();
-pennylane_maj_tresorerie();
 
 $annee   = (int) date('Y');
 $seuil   = in_array($_GET['seuil'] ?? '', ['controle', 'minoritaire', 'totale'], true) ? $_GET['seuil'] : 'tout';

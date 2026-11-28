@@ -11,8 +11,6 @@ require_once __DIR__ . '/../inc/ui.php';
 require_direction(); // vue consolidée : direction uniquement
 
 // Un export Pennylane passé par phpMyAdmin n'a pas déclenché le calcul : on le refait ici
-pennylane_relier_automatiquement();
-pennylane_maj_tresorerie();
 
 $projects = get_global_overview();
 $groupes  = group_projects_for_overview($projects);
@@ -88,14 +86,9 @@ $dernierMois = (int) get_db()->query("SELECT COALESCE(MAX(MONTH(period_date)), 0
 $ytdN1    = $dernierMois ? resultat_annee($tousIds, $annee - 1, $dernierMois) : null;
 $varNet   = $ytdN1 ? ecart_pct($ytdNet, $ytdN1['revenus'] - $ytdN1['charges']) : null;
 
-// Factures fournisseurs restant à payer d'après le dernier export Pennylane
-try {
-    $plProjets = pennylane_par_projet($annee . '-01-01', $annee . '-12-31');
-    $plImport  = pennylane_dernier_import();
-} catch (PDOException $e) {
-    $plProjets = []; // migration 013 pas encore passée
-    $plImport  = null;
-}
+// Factures fournisseurs Pennylane : plus affichées depuis l'abandon de l'import manuel (28/11/2026)
+$plProjets = [];
+$plImport  = null;
 $plReste = array_sum(array_column($plProjets, 'reste'));
 $plEchu  = array_sum(array_column($plProjets, 'echu'));
 $nomsProjets = array_column($projects, 'name', 'id');
