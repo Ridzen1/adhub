@@ -335,6 +335,10 @@ arrivent, `cron/sync_api.php` prend le relais.
 
 ## Comptabilité : import Pennylane
 
+> **Abandonné le 28/11/2026** : l'onglet Comptabilité et le menu Import Pennylane sont retirés
+> (anciens liens redirigés vers Banque / Trésorerie). Banque, trésorerie et charges viennent de Qalimo.
+> Les données Pennylane déjà importées restent en base ; le code d'import reste dans `inc/pennylane.php`.
+
 Pas de connexion automatique à Pennylane : la direction exporte les données à la main et les dépose
 dans **Administration → Import Pennylane** (migration `013_pennylane.sql`).
 
