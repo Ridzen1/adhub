@@ -7,6 +7,7 @@ require_once __DIR__ . '/../inc/periodes.php';
 require_once __DIR__ . '/../inc/indicateurs.php';
 require_once __DIR__ . '/../inc/objectifs.php';
 require_once __DIR__ . '/../inc/qalimo.php';
+require_once __DIR__ . '/../inc/qalimo_banques.php';
 require_once __DIR__ . '/../inc/caisses.php';
 require_once __DIR__ . '/../inc/ui.php';
 require_login();
@@ -124,9 +125,25 @@ if (!empty($project['siret_siren'])) {
 if (!empty($project['adresse'])) {
     $metaHtml[] = h($project['adresse']);
 }
-if ($project['solde_bancaire'] !== null && !$estRestaurant) { // pas de trésorerie pour un restaurant
-    $metaHtml[] = 'Trésorerie <strong class="text-body">' . eur((float) $project['solde_bancaire']) . '</strong>'
-                . ($project['solde_maj_le'] ? ' au ' . date('d/m/Y', strtotime($project['solde_maj_le'])) : '');
+// Trésorerie en grand en haut du tableau de bord (pas de trésorerie pour un restaurant)
+$treso = null;
+if ($project['solde_bancaire'] !== null && !$estRestaurant) {
+    $comptesBanque = qalimo_banques_disponible() ? qalimo_comptes_projet($id) : [];
+    $aujourdhuiT = new DateTimeImmutable('today');
+    $treso = [
+        'solde'   => (float) $project['solde_bancaire'],
+        'le'      => $project['solde_maj_le'],
+        'perime'  => solde_est_perime_dashboard($project['solde_maj_le']),
+        'comptes' => count($comptesBanque),
+        'mois'    => $comptesBanque ? qalimo_flux_projet($id, $aujourdhuiT->format('Y-m-01'), $aujourdhuiT->format('Y-m-d')) : null,
+        'j30'     => $comptesBanque ? qalimo_flux_projet($id, $aujourdhuiT->modify('-30 days')->format('Y-m-d'), $aujourdhuiT->format('Y-m-d')) : null,
+        'alerte'  => count(array_filter($comptesBanque, fn($c) => qalimo_statut_compte($c['statut'])[1] !== 'success')),
+    ];
+}
+
+function solde_est_perime_dashboard(?string $le): bool
+{
+    return $le !== null && new DateTime($le) < new DateTime('-30 days');
 }
 
 $actions = '';
@@ -146,6 +163,30 @@ require __DIR__ . '/../inc/layout_header.php';
 <?php foreach ($errors as $e): ?>
   <div class="alert alert-danger"><?= h($e) ?></div>
 <?php endforeach; ?>
+
+<?php if ($treso): ?>
+  <?php $tag = $treso['comptes'] ? 'a' : 'div'; ?>
+  <<?= $tag ?> class="treso-banner<?= $treso['solde'] < 0 ? ' negatif' : '' ?>"<?= $treso['comptes'] ? ' href="/pages/banque.php?id=' . $id . '"' : '' ?>>
+    <div class="treso-main">
+      <div class="treso-label"><?= icon('bank', 16) ?> Trésorerie</div>
+      <div class="treso-value num"><?= eur($treso['solde']) ?></div>
+      <div class="treso-foot">
+        <?php if ($treso['le']): ?><span>au <?= date('d/m/Y', strtotime($treso['le'])) ?></span><?php endif; ?>
+        <?php if ($treso['perime']): ?><span class="stale">ancien</span><?php endif; ?>
+        <?php if ($treso['comptes']): ?><span><?= $treso['comptes'] ?> compte<?= $treso['comptes'] > 1 ? 's' : '' ?></span><?php endif; ?>
+        <?php if ($treso['alerte']): ?><span class="treso-warn"><?= $treso['alerte'] ?> à reconnecter dans Qalimo</span><?php endif; ?>
+      </div>
+    </div>
+    <?php if ($treso['mois']): $v30 = $treso['j30']['entrees'] - $treso['j30']['sorties']; ?>
+    <div class="treso-side">
+      <div><span>Sur 30 jours</span><strong class="num <?= $v30 < 0 ? 'neg' : 'pos' ?>"><?= ($v30 > 0 ? '+' : '') . eur($v30) ?></strong></div>
+      <div><span>Entrées du mois</span><strong class="num"><?= eur($treso['mois']['entrees']) ?></strong></div>
+      <div><span>Sorties du mois</span><strong class="num"><?= eur($treso['mois']['sorties']) ?></strong></div>
+      <div class="treso-link">Voir la banque →</div>
+    </div>
+    <?php endif; ?>
+  </<?= $tag ?>>
+<?php endif; ?>
 
 <?php if ($estRestaurant): ?>
   <h6 class="text-muted mb-3">Activité</h6>
